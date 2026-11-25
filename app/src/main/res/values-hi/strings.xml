@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Backdrops</string>
+    <string name="widget_switcher_label">Backdrops स्विचर (2x2)</string>
+    <string name="widget_strip_label">Backdrops स्ट्रिप (4x1)</string>
+    <string name="widget_showcase_label">Backdrops शोकेस (4x2)</string>
+    <string name="widget_studio_desc">Backdrops डेप्थ स्टूडियो खोलें</string>
+    <string name="widget_next">अगला वॉलपेपर</string>
+    <string name="widget_open_studio">डेप्थ स्टूडियो खोलें</string>
+    <string name="widget_apply">लागू करें</string>
+    <string name="widget_favorite">पसंदीदा</string>
+    <string name="widget_favorited">सहेजा गया</string>
+    <string name="nav_home">होम</string>
+    <string name="nav_explore">खोजें</string>
+    <string name="nav_favorites">पसंदीदा</string>
+    <string name="nav_collections">संग्रह</string>
+    <string name="nav_profile">प्रोफ़ाइल</string>
+    <string name="settings_title">स्टूडियो सेटिंग्स</string>
+    <string name="lock_screen_mode_title">लॉक स्क्रीन मोड</string>
+    <string name="onboarding_welcome">Backdrops में आपका स्वागत है</string>
+    <string name="widget_digital_clock_label">Backdrops डिजिटल घड़ी (4x1)</string>
+    <string name="widget_analog_clock_label">Backdrops एनालॉग घड़ी (2x2)</string>
+    <string name="widget_weather_label">Backdrops मौसम (2x2)</string>
+    <string name="widget_calendar_label">Backdrops कैलेंडर (4x2)</string>
+    <string name="widget_battery_label">Backdrops बैटरी (2x1)</string>
+    <string name="widget_music_label">Backdrops म्यूज़िक प्लेयर (4x2)</string>
+    <string name="widget_quick_info_label">Backdrops त्वरित जानकारी (4x1)</string>
+    <string name="widget_photo_frame_label">Backdrops फोटो फ्रेम (2x2)</string>
+    <string name="widget_system_info_label">Backdrops सिस्टम जानकारी (2x2)</string>
+    <string name="studio_typography_title">ऐप और स्टूडियो टाइपोग्राफी</string>
+    <string name="interactive_tutorial_title">इंटरैक्टिव ट्यूटोरियल</string>
+    <string name="offline_pack_title">ऑफ़लाइन वॉलपेपर पैक</string>
+    <string name="on_device_collection_title">डिवाइस पर संग्रह</string>
+</resources>

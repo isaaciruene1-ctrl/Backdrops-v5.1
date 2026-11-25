@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Backdrops</string>
+    <string name="widget_switcher_label">Sélecteur Backdrops (2x2)</string>
+    <string name="widget_strip_label">Bandeau Backdrops (4x1)</string>
+    <string name="widget_showcase_label">Vitrine Backdrops (4x2)</string>
+    <string name="widget_studio_desc">Ouvrir Backdrops Depth Studio</string>
+    <string name="widget_next">Fond suivant</string>
+    <string name="widget_open_studio">Ouvrir Depth Studio</string>
+    <string name="widget_apply">Appliquer</string>
+    <string name="widget_favorite">Favori</string>
+    <string name="widget_favorited">Aimé</string>
+    <string name="nav_home">Accueil</string>
+    <string name="nav_explore">Explorer</string>
+    <string name="nav_favorites">Favoris</string>
+    <string name="nav_collections">Collections</string>
+    <string name="nav_profile">Profil</string>
+    <string name="settings_title">Paramètres du Studio</string>
+    <string name="lock_screen_mode_title">Mode Écran Verrouillé</string>
+    <string name="onboarding_welcome">Bienvenue sur Backdrops</string>
+    <string name="widget_digital_clock_label">Horloge Numérique Backdrops (4x1)</string>
+    <string name="widget_analog_clock_label">Horloge Analogique Backdrops (2x2)</string>
+    <string name="widget_weather_label">Météo Backdrops (2x2)</string>
+    <string name="widget_calendar_label">Calendrier Backdrops (4x2)</string>
+    <string name="widget_battery_label">Batterie Backdrops (2x1)</string>
+    <string name="widget_music_label">Lecteur Musique Backdrops (4x2)</string>
+    <string name="widget_quick_info_label">Info Rapide Backdrops (4x1)</string>
+    <string name="widget_photo_frame_label">Cadre Photo Backdrops (2x2)</string>
+    <string name="widget_system_info_label">Infos Système Backdrops (2x2)</string>
+    <string name="studio_typography_title">Typographie Studio et App</string>
+    <string name="interactive_tutorial_title">Tutoriel Interactif</string>
+    <string name="offline_pack_title">Pack Hors Ligne</string>
+    <string name="on_device_collection_title">Collection Locale</string>
+</resources>

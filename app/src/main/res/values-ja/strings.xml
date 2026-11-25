@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Backdrops</string>
+    <string name="widget_switcher_label">Backdrops スイッチャー (2x2)</string>
+    <string name="widget_strip_label">Backdrops ストリップ (4x1)</string>
+    <string name="widget_showcase_label">Backdrops ショーケース (4x2)</string>
+    <string name="widget_studio_desc">Backdrops 深度スタジオを開く</string>
+    <string name="widget_next">次の壁紙</string>
+    <string name="widget_open_studio">深度スタジオを開く</string>
+    <string name="widget_apply">適用</string>
+    <string name="widget_favorite">お気に入り</string>
+    <string name="widget_favorited">保存済み</string>
+    <string name="nav_home">ホーム</string>
+    <string name="nav_explore">探索</string>
+    <string name="nav_favorites">お気に入り</string>
+    <string name="nav_collections">コレクション</string>
+    <string name="nav_profile">プロフィール</string>
+    <string name="settings_title">スタジオ設定</string>
+    <string name="lock_screen_mode_title">ロック画面モード</string>
+    <string name="onboarding_welcome">Backdrops へようこそ</string>
+    <string name="widget_digital_clock_label">Backdrops デジタル時計 (4x1)</string>
+    <string name="widget_analog_clock_label">Backdrops アナログ時計 (2x2)</string>
+    <string name="widget_weather_label">Backdrops 天気 (2x2)</string>
+    <string name="widget_calendar_label">Backdrops カレンダー (4x2)</string>
+    <string name="widget_battery_label">Backdrops バッテリー (2x1)</string>
+    <string name="widget_music_label">Backdrops 音楽プレーヤー (4x2)</string>
+    <string name="widget_quick_info_label">Backdrops クイック情報 (4x1)</string>
+    <string name="widget_photo_frame_label">Backdrops フォトフレーム (2x2)</string>
+    <string name="widget_system_info_label">Backdrops システム情報 (2x2)</string>
+    <string name="studio_typography_title">アプリとスタジオのフォント</string>
+    <string name="interactive_tutorial_title">インタラクティブチュートリアル</string>
+    <string name="offline_pack_title">オフライン壁紙パック</string>
+    <string name="on_device_collection_title">端末内コレクション</string>
+</resources>

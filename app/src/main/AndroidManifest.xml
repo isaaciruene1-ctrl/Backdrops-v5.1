@@ -1,0 +1,417 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER_HINTS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+
+    <application
+        android:name=".BackdropApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BACKDROP">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.BACKDROP">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".engine.overlay.BackdropLockActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.BACKDROP" />
+
+        <service
+            android:name=".engine.overlay.LockScreenOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Custom non-bypassing lock-screen clock experience displayed on screen-wake when explicitly enabled by the user." />
+        </service>
+
+        <service
+            android:name=".engine.notifications.BackdropNotificationListenerService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".engine.overlay.LockScreenBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropSwitcherWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_switcher_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_APPLY_NEXT" />
+                <action android:name="com.example.widget.ACTION_NEXT_WALLPAPER" />
+                <action android:name="com.example.widget.ACTION_APPLY_CURRENT" />
+                <action android:name="com.example.widget.ACTION_TOGGLE_FAVORITE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_backdrop_switcher_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropStripWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_strip_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_APPLY_NEXT" />
+                <action android:name="com.example.widget.ACTION_NEXT_WALLPAPER" />
+                <action android:name="com.example.widget.ACTION_APPLY_CURRENT" />
+                <action android:name="com.example.widget.ACTION_TOGGLE_FAVORITE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_backdrop_strip_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropShowcaseWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_showcase_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_APPLY_NEXT" />
+                <action android:name="com.example.widget.ACTION_NEXT_WALLPAPER" />
+                <action android:name="com.example.widget.ACTION_APPLY_CURRENT" />
+                <action android:name="com.example.widget.ACTION_TOGGLE_FAVORITE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_backdrop_showcase_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropDigitalClockWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_digital_clock_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_digital_clock_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropAnalogClockWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_analog_clock_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_analog_clock_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropWeatherWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_weather_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_WEATHER_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_weather_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropCalendarWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_calendar_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_calendar_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropBatteryWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_battery_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_battery_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropMusicWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_music_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_MUSIC_PREV" />
+                <action android:name="com.example.widget.ACTION_MUSIC_PLAY_PAUSE" />
+                <action android:name="com.example.widget.ACTION_MUSIC_NEXT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_music_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropQuickInfoWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_quick_info_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_quick_info_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropPhotoFrameWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_photo_frame_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_photo_frame_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropSystemInfoWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_system_info_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_system_info_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropWorldClockWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_world_clock_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_WORLD_CLOCK_CYCLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_world_clock_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropFocusTimerWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_focus_timer_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_FOCUS_TIMER_TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_focus_timer_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropHabitStreakWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_habit_streak_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_HABIT_CHECK_IN" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_habit_streak_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropStopwatchWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_stopwatch_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_STOPWATCH_TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_stopwatch_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropCountdownWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_countdown_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_COUNTDOWN_TOGGLE" />
+                <action android:name="com.example.widget.ACTION_COUNTDOWN_ADD_MIN" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_countdown_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropCompassWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_compass_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_compass_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropSunriseSunsetWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_sunrise_sunset_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_sunrise_sunset_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropDayProgressWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_day_progress_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_day_progress_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropPinnedNoteWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_pinned_note_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_PINNED_NOTE_CYCLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_pinned_note_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropNetworkStatusWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_network_status_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_NETWORK_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_network_status_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropStepCounterWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_step_counter_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_STEP_INCREMENT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_step_counter_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropAudioVolumeWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_audio_volume_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_AUDIO_VOL_DOWN" />
+                <action android:name="com.example.widget.ACTION_AUDIO_VOL_UP" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_audio_volume_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.BackdropDailyQuoteWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_daily_quote_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_QUOTE_NEXT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expanded_daily_quote_info" />
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

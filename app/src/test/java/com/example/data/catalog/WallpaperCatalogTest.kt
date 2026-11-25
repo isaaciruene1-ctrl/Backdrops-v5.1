@@ -1,0 +1,119 @@
+package com.example.data.catalog
+
+import com.example.data.model.ColorFamily
+import com.example.data.model.DiscoveryCollection
+import com.example.data.model.ResolutionTier
+import com.example.data.model.SearchFilters
+import com.example.data.model.SearchSort
+import com.example.data.model.WallpaperCategory
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class WallpaperCatalogTest {
+
+    @Test
+    fun catalogHasAtLeast2050DistinctWallpapersAnd185PlusPerCategory() {
+        val raw = buildCatalogPartOne() +
+            buildCatalogPartTwo() +
+            buildCatalogPartThree() +
+            buildCatalogPartFour() +
+            buildCatalogPartFive() +
+            buildCatalogPartSix() +
+            buildCatalogPartSeven() +
+            buildCatalogPartEight() +
+            buildCatalogPartNine() +
+            buildCatalogPartTen() +
+            buildCatalogPartEleven() +
+            buildCatalogPartTwelve()
+        val rawSlugs = raw.map { it.thumbnailUrl.substringAfter("photo-").substringBefore("?") }
+        val duplicates = rawSlugs.groupingBy { it }.eachCount().filter { it.value > 1 }
+        assertTrue("Expected zero duplicate raw slugs across parts 1-12, found: $duplicates", duplicates.isEmpty())
+
+        val all = WallpaperCatalog.allWallpapers
+        assertEquals("Expected exact 3000 wallpapers, got ${all.size}", 3000, all.size)
+        assertEquals("Duplicate IDs detected", all.size, all.map { it.id }.toSet().size)
+        assertEquals(
+            "Duplicate thumbnail URLs detected",
+            all.size,
+            all.map { it.thumbnailUrl }.toSet().size
+        )
+        assertTrue(
+            "Non-bundled wallpapers must not carry static fallbackResId drawables",
+            all.filterNot { it.isBundledAsset }.all { it.fallbackResId == 0 }
+        )
+
+        WallpaperCategory.entries.forEach { category ->
+            val count = all.count { it.category == category }
+            val minExpected = 250
+            assertTrue(
+                "Expected at least $minExpected wallpapers in category $category, got $count",
+                count >= minExpected
+            )
+        }
+
+        val depthItems = WallpaperCatalog.getForCollection(DiscoveryCollection.DEPTH_STUDIO)
+        assertTrue("Expected at least 185 curated Depth Studio wallpapers, got ${depthItems.size}", depthItems.size >= 185)
+        assertTrue(
+            "All Depth Studio entries must have portrait orientation for lock-screen clocks",
+            depthItems.all { it.height > it.width }
+        )
+    }
+
+    @Test
+    fun all20DiscoveryCollectionsReturnWallpapers() {
+        DiscoveryCollection.entries.forEach { collection ->
+            val items = WallpaperCatalog.getForCollection(collection)
+            assertTrue("Collection $collection should not be empty", items.isNotEmpty())
+        }
+    }
+
+    @Test
+    fun allColorFamiliesHaveMatchesAndSearchFiltersWork() {
+        ColorFamily.entries.forEach { family ->
+            val results = WallpaperCatalog.search(SearchFilters(colorFamily = family))
+            assertTrue("Color family $family returned empty results", results.isNotEmpty())
+        }
+
+        val uhdDepth = WallpaperCatalog.search(
+            SearchFilters(
+                resolutionTier = ResolutionTier.UHD_4K,
+                depthStudioOnly = true,
+                sort = SearchSort.MOST_POPULAR
+            )
+        )
+        assertTrue(uhdDepth.isNotEmpty())
+        assertTrue(uhdDepth.all { it.resolutionTier == ResolutionTier.UHD_4K && it.supportsDepthEffect })
+    }
+
+    @Test
+    fun resolutionTiersMatchExact4k2kAndFullHdDimensionsInUrls() {
+        WallpaperCatalog.allWallpapers.forEach { wp ->
+            assertTrue("Expected zero procedural URLs, found ${wp.fullResUrl}", !wp.fullResUrl.startsWith("procedural://"))
+            assertTrue("Expected zero procedural URLs, found ${wp.thumbnailUrl}", !wp.thumbnailUrl.startsWith("procedural://"))
+            when (wp.resolutionTier) {
+                ResolutionTier.UHD_4K -> {
+                    val maxDim = maxOf(wp.width, wp.height)
+                    val minDim = minOf(wp.width, wp.height)
+                    assertTrue("${wp.id} 4K width/height invalid: ${wp.width}x${wp.height}", maxDim >= 3240 && minDim >= 2160)
+                    assertTrue("${wp.id} missing w=${wp.width} in URL", wp.fullResUrl.contains("w=${wp.width}"))
+                    assertTrue("${wp.id} missing h=${wp.height} in URL", wp.fullResUrl.contains("h=${wp.height}"))
+                }
+                ResolutionTier.QHD_1440 -> {
+                    val maxDim = maxOf(wp.width, wp.height)
+                    val minDim = minOf(wp.width, wp.height)
+                    assertTrue("${wp.id} 2K width/height invalid: ${wp.width}x${wp.height}", maxDim >= 2160 && minDim >= 1440)
+                    assertTrue("${wp.id} missing w=${wp.width} in URL", wp.fullResUrl.contains("w=${wp.width}"))
+                    assertTrue("${wp.id} missing h=${wp.height} in URL", wp.fullResUrl.contains("h=${wp.height}"))
+                }
+                ResolutionTier.FHD_1080 -> {
+                    val maxDim = maxOf(wp.width, wp.height)
+                    val minDim = minOf(wp.width, wp.height)
+                    assertTrue("${wp.id} FHD width/height invalid: ${wp.width}x${wp.height}", maxDim >= 1620 && minDim >= 1080)
+                    assertTrue("${wp.id} missing w=${wp.width} in URL", wp.fullResUrl.contains("w=${wp.width}"))
+                    assertTrue("${wp.id} missing h=${wp.height} in URL", wp.fullResUrl.contains("h=${wp.height}"))
+                }
+            }
+        }
+    }
+}

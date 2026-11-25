@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">Backdrops</string>
+    <string name="widget_switcher_label">Backdrops 스위처 (2x2)</string>
+    <string name="widget_strip_label">Backdrops 스트립 (4x1)</string>
+    <string name="widget_showcase_label">Backdrops 쇼케이스 (4x2)</string>
+    <string name="widget_studio_desc">Backdrops 뎁스 스튜디오 열기</string>
+    <string name="widget_next">다음 배경화면</string>
+    <string name="widget_open_studio">뎁스 스튜디오 열기</string>
+    <string name="widget_apply">적용</string>
+    <string name="widget_favorite">즐겨찾기</string>
+    <string name="widget_favorited">저장됨</string>
+    <string name="nav_home">홈</string>
+    <string name="nav_explore">탐색</string>
+    <string name="nav_favorites">즐겨찾기</string>
+    <string name="nav_collections">컬렉션</string>
+    <string name="nav_profile">프로필</string>
+    <string name="settings_title">스튜디오 설정</string>
+    <string name="lock_screen_mode_title">잠금 화면 모드</string>
+    <string name="onboarding_welcome">Backdrops에 오신 것을 환영합니다</string>
+    <string name="widget_digital_clock_label">Backdrops 디지털 시계 (4x1)</string>
+    <string name="widget_analog_clock_label">Backdrops 아날로그 시계 (2x2)</string>
+    <string name="widget_weather_label">Backdrops 날씨 (2x2)</string>
+    <string name="widget_calendar_label">Backdrops 캘린더 (4x2)</string>
+    <string name="widget_battery_label">Backdrops 배터리 (2x1)</string>
+    <string name="widget_music_label">Backdrops 음악 플레이어 (4x2)</string>
+    <string name="widget_quick_info_label">Backdrops 빠른 정보 (4x1)</string>
+    <string name="widget_photo_frame_label">Backdrops 포토 프레임 (2x2)</string>
+    <string name="widget_system_info_label">Backdrops 시스템 정보 (2x2)</string>
+    <string name="studio_typography_title">앱 및 스튜디오 서체</string>
+    <string name="interactive_tutorial_title">대화형 튜토리얼</string>
+    <string name="offline_pack_title">오프라인 배경화면 팩</string>
+    <string name="on_device_collection_title">기기 내 컬렉션</string>
+</resources>
