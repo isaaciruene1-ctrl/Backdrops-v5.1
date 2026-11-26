@@ -13,25 +13,17 @@ import org.junit.Test
 class WallpaperCatalogTest {
 
     @Test
-    fun catalogHasAtLeast2050DistinctWallpapersAnd185PlusPerCategory() {
+    fun catalogHasExact100CuratedWallpapersAndBalancedCategories() {
         val raw = buildCatalogPartOne() +
             buildCatalogPartTwo() +
             buildCatalogPartThree() +
-            buildCatalogPartFour() +
-            buildCatalogPartFive() +
-            buildCatalogPartSix() +
-            buildCatalogPartSeven() +
-            buildCatalogPartEight() +
-            buildCatalogPartNine() +
-            buildCatalogPartTen() +
-            buildCatalogPartEleven() +
-            buildCatalogPartTwelve()
+            buildCatalogPartFour()
         val rawSlugs = raw.map { it.thumbnailUrl.substringAfter("photo-").substringBefore("?") }
         val duplicates = rawSlugs.groupingBy { it }.eachCount().filter { it.value > 1 }
-        assertTrue("Expected zero duplicate raw slugs across parts 1-12, found: $duplicates", duplicates.isEmpty())
+        assertTrue("Expected zero duplicate raw slugs across parts 1-4, found: $duplicates", duplicates.isEmpty())
 
         val all = WallpaperCatalog.allWallpapers
-        assertEquals("Expected exact 3000 wallpapers, got ${all.size}", 3000, all.size)
+        assertEquals("Expected exact ${WallpaperCatalog.TARGET_CATALOG_SIZE} wallpapers, got ${all.size}", WallpaperCatalog.TARGET_CATALOG_SIZE, all.size)
         assertEquals("Duplicate IDs detected", all.size, all.map { it.id }.toSet().size)
         assertEquals(
             "Duplicate thumbnail URLs detected",
@@ -45,7 +37,7 @@ class WallpaperCatalogTest {
 
         WallpaperCategory.entries.forEach { category ->
             val count = all.count { it.category == category }
-            val minExpected = 250
+            val minExpected = 5
             assertTrue(
                 "Expected at least $minExpected wallpapers in category $category, got $count",
                 count >= minExpected
@@ -53,7 +45,7 @@ class WallpaperCatalogTest {
         }
 
         val depthItems = WallpaperCatalog.getForCollection(DiscoveryCollection.DEPTH_STUDIO)
-        assertTrue("Expected at least 185 curated Depth Studio wallpapers, got ${depthItems.size}", depthItems.size >= 185)
+        assertTrue("Expected at least 15 curated Depth Studio wallpapers, got ${depthItems.size}", depthItems.size >= 15)
         assertTrue(
             "All Depth Studio entries must have portrait orientation for lock-screen clocks",
             depthItems.all { it.height > it.width }

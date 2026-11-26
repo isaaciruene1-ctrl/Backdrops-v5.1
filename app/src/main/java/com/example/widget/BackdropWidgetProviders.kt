@@ -221,10 +221,10 @@ abstract class BaseBackdropWidgetProvider(
             val wp = WallpaperCatalog.getById(wpId) ?: WallpaperCatalog.allWallpapers.firstOrNull()
             val isFavorite = wp != null && store.getFavoritesSync().any { it.wallpaperId == wp.id }
 
-            val containerBg = if (prefs.uiStyle == UiStyleMode.FROSTED_GLASS_OS.name) {
-                R.drawable.widget_glass_surface_bg
-            } else {
-                R.drawable.widget_m3_surface_bg
+            val containerBg = when (prefs.uiStyle) {
+                UiStyleMode.FROSTED_GLASS_OS.name -> R.drawable.widget_glass_surface_bg
+                UiStyleMode.GLYPH_UI.name -> R.drawable.widget_glyph_surface_bg
+                else -> R.drawable.widget_m3_surface_bg
             }
             views.setInt(R.id.widget_container, "setBackgroundResource", containerBg)
 

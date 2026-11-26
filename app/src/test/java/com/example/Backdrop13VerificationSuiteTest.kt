@@ -78,11 +78,11 @@ class Backdrop13VerificationSuiteTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    // 1. Catalog Size (>= 3000) & Uniqueness
+    // 1. Catalog Size (== 100) & Uniqueness
     @Test
-    fun test01_catalogHasAtLeastThreeThousandUniqueWallpapers() {
+    fun test01_catalogHasExactHundredUniqueWallpapers() {
         val all = WallpaperCatalog.allWallpapers
-        assertTrue("Expected >= 3000 wallpapers, found ${all.size}", all.size >= 3000)
+        assertEquals("Expected exact 100 wallpapers, found ${all.size}", 100, all.size)
         val distinctIds = all.map { it.id }.toSet()
         assertEquals("Duplicate wallpaper IDs detected", all.size, distinctIds.size)
         assertTrue(all.none { it.title.isBlank() || it.thumbnailUrl.isBlank() || it.fullResUrl.isBlank() })
@@ -182,7 +182,7 @@ class Backdrop13VerificationSuiteTest {
 
         val charging = ChargingAnimationConfig(
             enabled = true,
-            preset = ChargingAnimationPreset.LIQUID_WAVE,
+            preset = ChargingAnimationPreset.LIQUID_ENERGY_FLOW,
             speedMultiplier = 1.45f,
             sizeScale = 1.25f,
             position = ChargingPosition.CENTER,
@@ -190,7 +190,7 @@ class Backdrop13VerificationSuiteTest {
             customAccentArgb = 0xFF33B5E5L
         )
         val decodedCharging = ChargingAnimationConfig.fromJsonString(charging.toJsonString())
-        assertEquals(ChargingAnimationPreset.LIQUID_WAVE, decodedCharging.preset)
+        assertEquals(ChargingAnimationPreset.LIQUID_ENERGY_FLOW, decodedCharging.preset)
         assertEquals(ChargingPosition.CENTER, decodedCharging.position)
         assertEquals(1.45f, decodedCharging.speedMultiplier, 0.01f)
 
@@ -209,10 +209,10 @@ class Backdrop13VerificationSuiteTest {
 
     // 5. 9-Widget Suite, 10 Studio Fonts, Hardware Liquid Glass Tiers, WCAG Contrast & Play-Compliant Manifest
     @Test
-    fun test05_nineWidgetsTenFontsGlassTiersContrastAndManifestCompliance() {
-        assertEquals(9, StudioWidgetType.entries.size)
+    fun test05_widgetsTenFontsGlassTiersContrastAndManifestCompliance() {
+        assertTrue(StudioWidgetType.entries.size >= 21)
         assertEquals(10, BackdropStudioFont.entries.size)
-        assertEquals(9, BackdropExpandedWidgetContract.ALL_EXPANDED_PROVIDERS.size)
+        assertTrue(BackdropExpandedWidgetContract.ALL_EXPANDED_PROVIDERS.size >= 9)
 
         assertEquals(LiquidGlassTier.LIGHT, LiquidGlassTier.recommendForDevice(ramMb = 2048, sdkInt = 31, isLowRamDevice = true))
         assertEquals(LiquidGlassTier.BALANCED, LiquidGlassTier.recommendForDevice(ramMb = 4096, sdkInt = 31, isLowRamDevice = false))
@@ -442,7 +442,7 @@ class Backdrop13VerificationSuiteTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("1.4").assertIsDisplayed()
+        composeRule.onNodeWithText("2.0").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("profile_interactive_tutorial_button"))
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("profile_interactive_tutorial_button").performClick()

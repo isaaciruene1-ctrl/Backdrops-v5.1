@@ -134,53 +134,70 @@ fun TactileAmbientBackdrop(
                 .fillMaxSize()
                 .background(baseBg)
                 .drawBehind {
-                    if (uiStyle == UiStyleMode.FROSTED_GLASS_OS && !isAmoled) {
-                        val tierFactor = customTokens.liquidGlassTier.blurMultiplier.coerceIn(0.6f, 1.3f)
-                        val glowCfg = customTokens.glowMaterial
-                        val baseAlpha = if (isDark) 0.13f else 0.12f
-                        val lightResp = customTokens.glassLightResponse.coerceIn(0.4f, 1.4f)
-                        val alphaMul = (baseAlpha * glassDepth * lightResp * tierFactor * (0.75f + glowCfg.backgroundInteraction * 0.35f)).coerceIn(0.05f, 0.28f)
-                        // Controlled local light-proximity diffusion radius (~3-4 neighbouring elements without washing viewport)
-                        val radiusMul = (0.30f + (lightResp - 1f) * 0.09f).coerceIn(0.24f, 0.42f)
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colorStops = arrayOf(
-                                    0f to primaryGlow.copy(alpha = alphaMul),
-                                    0.45f to primaryGlow.copy(alpha = alphaMul * 0.38f),
-                                    1f to Color.Transparent
+                    when (uiStyle) {
+                        UiStyleMode.GLYPH_UI -> {
+                            // Crisp architectural dot-matrix texture (zero color glow)
+                            val dotColor = if (isDark) Color.White.copy(alpha = 0.045f) else Color.Black.copy(alpha = 0.045f)
+                            val stepPx = 24.dp.toPx()
+                            var y = stepPx * 0.5f
+                            while (y < size.height) {
+                                var x = stepPx * 0.5f
+                                while (x < size.width) {
+                                    drawCircle(color = dotColor, radius = 1.dp.toPx(), center = Offset(x, y))
+                                    x += stepPx
+                                }
+                                y += stepPx
+                            }
+                        }
+                        UiStyleMode.FROSTED_GLASS_OS if !isAmoled -> {
+                            val tierFactor = customTokens.liquidGlassTier.blurMultiplier.coerceIn(0.6f, 1.3f)
+                            val glowCfg = customTokens.glowMaterial
+                            val baseAlpha = if (isDark) 0.13f else 0.12f
+                            val lightResp = customTokens.glassLightResponse.coerceIn(0.4f, 1.4f)
+                            val alphaMul = (baseAlpha * glassDepth * lightResp * tierFactor * (0.75f + glowCfg.backgroundInteraction * 0.35f)).coerceIn(0.05f, 0.28f)
+                            // Controlled local light-proximity diffusion radius (~3-4 neighbouring elements without washing viewport)
+                            val radiusMul = (0.30f + (lightResp - 1f) * 0.09f).coerceIn(0.24f, 0.42f)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colorStops = arrayOf(
+                                        0f to primaryGlow.copy(alpha = alphaMul),
+                                        0.45f to primaryGlow.copy(alpha = alphaMul * 0.38f),
+                                        1f to Color.Transparent
+                                    ),
+                                    center = Offset(size.width * 0.18f, size.height * 0.12f),
+                                    radius = size.maxDimension * radiusMul
                                 ),
-                                center = Offset(size.width * 0.18f, size.height * 0.12f),
-                                radius = size.maxDimension * radiusMul
-                            ),
-                            radius = size.maxDimension * radiusMul,
-                            center = Offset(size.width * 0.18f, size.height * 0.12f)
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colorStops = arrayOf(
-                                    0f to secondaryGlow.copy(alpha = alphaMul * 0.85f),
-                                    0.45f to secondaryGlow.copy(alpha = alphaMul * 0.30f),
-                                    1f to Color.Transparent
+                                radius = size.maxDimension * radiusMul,
+                                center = Offset(size.width * 0.18f, size.height * 0.12f)
+                            )
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colorStops = arrayOf(
+                                        0f to secondaryGlow.copy(alpha = alphaMul * 0.85f),
+                                        0.45f to secondaryGlow.copy(alpha = alphaMul * 0.30f),
+                                        1f to Color.Transparent
+                                    ),
+                                    center = Offset(size.width * 0.85f, size.height * 0.48f),
+                                    radius = size.maxDimension * (radiusMul * 0.88f)
                                 ),
-                                center = Offset(size.width * 0.85f, size.height * 0.48f),
-                                radius = size.maxDimension * (radiusMul * 0.88f)
-                            ),
-                            radius = size.maxDimension * (radiusMul * 0.88f),
-                            center = Offset(size.width * 0.85f, size.height * 0.48f)
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colorStops = arrayOf(
-                                    0f to tertiaryGlow.copy(alpha = alphaMul * 0.65f),
-                                    0.5f to tertiaryGlow.copy(alpha = alphaMul * 0.22f),
-                                    1f to Color.Transparent
+                                radius = size.maxDimension * (radiusMul * 0.88f),
+                                center = Offset(size.width * 0.85f, size.height * 0.48f)
+                            )
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colorStops = arrayOf(
+                                        0f to tertiaryGlow.copy(alpha = alphaMul * 0.65f),
+                                        0.5f to tertiaryGlow.copy(alpha = alphaMul * 0.22f),
+                                        1f to Color.Transparent
+                                    ),
+                                    center = Offset(size.width * 0.28f, size.height * 0.86f),
+                                    radius = size.maxDimension * (radiusMul * 0.82f)
                                 ),
-                                center = Offset(size.width * 0.28f, size.height * 0.86f),
-                                radius = size.maxDimension * (radiusMul * 0.82f)
-                            ),
-                            radius = size.maxDimension * (radiusMul * 0.82f),
-                            center = Offset(size.width * 0.28f, size.height * 0.86f)
-                        )
+                                radius = size.maxDimension * (radiusMul * 0.82f),
+                                center = Offset(size.width * 0.28f, size.height * 0.86f)
+                            )
+                        }
+                        else -> Unit
                     }
                 }
         ) {
@@ -234,35 +251,39 @@ fun TactileSurface(
     val glassDepth = LocalGlassDepthIntensity.current
     val customTokens = LocalThemeCustomization.current
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
 
-    val resolvedColor = if (isGlass) {
-        val baseDefaultAlpha = when {
-            isAmoled -> 0.88f
-            isDark -> 0.80f
-            else -> 0.72f
+    val resolvedColor = when {
+        isGlyph -> containerColor.copy(alpha = 1f)
+        isGlass -> {
+            val baseDefaultAlpha = when {
+                isAmoled -> 0.88f
+                isDark -> 0.80f
+                else -> 0.72f
+            }
+            val transparencyShift = (1f - customTokens.glassTransparencyLevel) * 0.34f
+            val contrastBoost = (customTokens.glassAdaptiveContrast - 1f) * 0.22f
+            val tunedAlpha = glassTintAlpha ?: (baseDefaultAlpha + (glassDepth - 1f) * 0.10f + transparencyShift + contrastBoost)
+            containerColor.copy(alpha = tunedAlpha.coerceIn(if (isDark) 0.44f else 0.38f, 0.97f))
         }
-        val transparencyShift = (1f - customTokens.glassTransparencyLevel) * 0.34f
-        val contrastBoost = (customTokens.glassAdaptiveContrast - 1f) * 0.22f
-        val tunedAlpha = glassTintAlpha ?: (baseDefaultAlpha + (glassDepth - 1f) * 0.10f + transparencyShift + contrastBoost)
-        containerColor.copy(alpha = tunedAlpha.coerceIn(if (isDark) 0.44f else 0.38f, 0.97f))
-    } else {
-        containerColor
+        else -> containerColor
     }
     val resolvedContentColor = contentColor.takeOrElse {
         MaterialTheme.colorScheme.contentColorFor(containerColor)
             .takeOrElse { MaterialTheme.colorScheme.onSurface }
     }
 
+    val glyphHairlineBorder = if (isGlyph) {
+        BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    } else null
     val m3ElevationFactor = customTokens.m3ElevationScale.coerceIn(0f, 1.6f)
-    // Zero elevation shadow on translucent glass surfaces prevents Compose from rendering
-    // an opaque rectangular shadow slab behind curved Light Mode glass pills.
     Surface(
         color = resolvedColor,
         contentColor = resolvedContentColor,
         shape = shape,
-        border = border ?: glassSpecularBorder(),
-        tonalElevation = if (isGlass) 0.dp else (tonalElevation * m3ElevationFactor),
-        shadowElevation = if (isGlass) 0.dp else ((tonalElevation * 0.85f) * m3ElevationFactor),
+        border = border ?: glyphHairlineBorder ?: glassSpecularBorder(),
+        tonalElevation = if (isGlass || isGlyph) 0.dp else (tonalElevation * m3ElevationFactor),
+        shadowElevation = if (isGlass || isGlyph) 0.dp else ((tonalElevation * 0.85f) * m3ElevationFactor),
         modifier = modifier,
         content = content
     )
@@ -287,15 +308,17 @@ fun TactileHudIconButton(
     val reducedMotion = LocalReducedMotionFlag.current
     val customTokens = LocalThemeCustomization.current
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
     val isDark = LocalDarkThemeFlag.current
 
     val scale by animateFloatAsState(
-        targetValue = if (active) 1.07f else 1f,
+        targetValue = if (active && !isGlyph) 1.07f else 1f,
         animationSpec = AppMotion.spatialSpring(uiStyle, reducedMotion, customTokens.m3MotionSpeed),
         label = "hud_btn_scale"
     )
     val resolvedBg = when {
         active -> MaterialTheme.colorScheme.primary.copy(alpha = if (isGlass) 0.90f else 1f)
+        isGlyph -> MaterialTheme.colorScheme.surfaceContainerLow
         isGlass -> containerColor.copy(
             alpha = if (isDark) (0.78f + (1f - customTokens.glassTransparencyLevel) * 0.12f).coerceIn(0.66f, 0.92f)
             else (0.68f + (1f - customTokens.glassTransparencyLevel) * 0.14f).coerceIn(0.56f, 0.86f)
@@ -309,8 +332,8 @@ fun TactileHudIconButton(
         color = resolvedBg,
         contentColor = resolvedTint,
         shape = CircleShape,
-        border = glassSpecularBorder(),
-        tonalElevation = if (isGlass) 0.dp else (3.dp * customTokens.m3ElevationScale),
+        border = if (isGlyph) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else glassSpecularBorder(),
+        tonalElevation = if (isGlass || isGlyph) 0.dp else (3.dp * customTokens.m3ElevationScale),
         shadowElevation = 0.dp,
         modifier = modifier
             .size(48.dp)
@@ -348,6 +371,7 @@ fun <T> StudioSegmentedBar(
     val customTokens = LocalThemeCustomization.current
     val haptics = rememberStudioHaptics()
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
     val isDark = LocalDarkThemeFlag.current
 
     val glassTrackAlpha = if (isDark) {
@@ -355,10 +379,10 @@ fun <T> StudioSegmentedBar(
     } else {
         (0.76f + (1f - customTokens.glassTransparencyLevel) * 0.24f).coerceIn(0.50f, 0.94f)
     }
-    val trackColor = if (isGlass) {
-        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = glassTrackAlpha)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHighest
+    val trackColor = when {
+        isGlyph -> MaterialTheme.colorScheme.surfaceContainerLow
+        isGlass -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = glassTrackAlpha)
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest
     }
     val barHeight = (44f * customTokens.m3DensityScale.coerceIn(0.85f, 1.25f)).dp
     val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
@@ -369,14 +393,22 @@ fun <T> StudioSegmentedBar(
         label = "seg_slide_idx"
     )
 
-    val outerShape = if (isGlass) RoundedCornerShape(50) else RoundedCornerShape((24f * customTokens.m3CornerRadiusScale).dp)
+    val outerShape = when {
+        isGlyph -> RoundedCornerShape(50)
+        isGlass -> RoundedCornerShape(50)
+        else -> RoundedCornerShape((24f * customTokens.m3CornerRadiusScale).dp)
+    }
 
     Surface(
         color = trackColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
         shape = outerShape,
-        border = if (isGlass) glassSpecularBorder() else null,
-        tonalElevation = if (isGlass) 0.dp else (2.dp * customTokens.m3ElevationScale),
+        border = when {
+            isGlyph -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            isGlass -> glassSpecularBorder()
+            else -> null
+        },
+        tonalElevation = if (isGlass || isGlyph) 0.dp else (2.dp * customTokens.m3ElevationScale),
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 2.dp)
@@ -401,15 +433,17 @@ fun <T> StudioSegmentedBar(
                     .height(barHeight)
                     .clip(outerShape)
                     .background(
-                        brush = if (isGlass) {
-                            Brush.linearGradient(
+                        brush = when {
+                            isGlyph -> Brush.linearGradient(
+                                listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary)
+                            )
+                            isGlass -> Brush.linearGradient(
                                 listOf(
                                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
                                     MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (isDark) 0.84f else 0.88f)
                                 )
                             )
-                        } else {
-                            Brush.linearGradient(
+                            else -> Brush.linearGradient(
                                 listOf(
                                     MaterialTheme.colorScheme.secondaryContainer,
                                     MaterialTheme.colorScheme.secondaryContainer
@@ -443,11 +477,11 @@ fun <T> StudioSegmentedBar(
                 options.forEach { option ->
                     val isSelected = option == selected
                     val textColor by animateColorAsState(
-                        targetValue = if (isSelected) {
-                            if (isGlass) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                        targetValue = when {
+                            isSelected && isGlyph -> MaterialTheme.colorScheme.onPrimary
+                            isSelected && isGlass -> MaterialTheme.colorScheme.onPrimaryContainer
+                            isSelected -> MaterialTheme.colorScheme.onSecondaryContainer
+                            else -> MaterialTheme.colorScheme.onSurface
                         },
                         animationSpec = AppMotion.colorSpec(uiStyle, reducedMotion, customTokens.m3MotionSpeed),
                         label = "seg_fg"
@@ -505,6 +539,7 @@ fun StudioOptionPill(
     val customTokens = LocalThemeCustomization.current
     val haptics = rememberStudioHaptics()
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
     val isDark = LocalDarkThemeFlag.current
 
     val pillScale by animateFloatAsState(
@@ -519,8 +554,10 @@ fun StudioOptionPill(
     }
     val targetBg = when {
         !enabled -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.45f)
+        selected && isGlyph -> MaterialTheme.colorScheme.primary
         selected && isGlass -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f)
         selected -> MaterialTheme.colorScheme.secondaryContainer
+        isGlyph -> MaterialTheme.colorScheme.surfaceContainerLow
         isGlass -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = glassUnselectedAlpha)
         else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
@@ -531,14 +568,15 @@ fun StudioOptionPill(
     )
     val fgColor = when {
         !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+        selected && isGlyph -> MaterialTheme.colorScheme.onPrimary
         selected && isGlass -> MaterialTheme.colorScheme.onPrimaryContainer
         selected -> MaterialTheme.colorScheme.onSecondaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
-    val pillShape = if (isGlass) {
-        RoundedCornerShape(50)
-    } else {
-        RoundedCornerShape((14f * customTokens.m3CornerRadiusScale).dp)
+    val pillShape = when {
+        isGlyph -> RoundedCornerShape(50)
+        isGlass -> RoundedCornerShape(50)
+        else -> RoundedCornerShape((14f * customTokens.m3CornerRadiusScale).dp)
     }
     val densityFactor = customTokens.m3DensityScale.coerceIn(0.85f, 1.25f)
 
@@ -550,6 +588,8 @@ fun StudioOptionPill(
             contentColor = fgColor,
             shape = pillShape,
             border = when {
+                isGlyph && selected -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                isGlyph -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 selected && isGlass -> BorderStroke(
                     width = (1.2f * customTokens.glassSpecularHighlights.coerceIn(0.6f, 1.4f)).dp,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
@@ -558,7 +598,7 @@ fun StudioOptionPill(
                 isGlass -> glassSpecularBorder()
                 else -> BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             },
-            tonalElevation = if (!isGlass && selected) (2.dp * customTokens.m3ElevationScale) else 0.dp,
+            tonalElevation = if (!isGlass && !isGlyph && selected) (2.dp * customTokens.m3ElevationScale) else 0.dp,
             shadowElevation = 0.dp,
             modifier = modifier
                 .graphicsLayer {
@@ -579,7 +619,14 @@ fun StudioOptionPill(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (leadingIcon != null) {
+                if (isGlyph && selected) {
+                    Box(
+                        modifier = Modifier
+                            .size(5.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFD92B2B))
+                    )
+                } else if (leadingIcon != null) {
                     Icon(
                         imageVector = leadingIcon,
                         contentDescription = null,
@@ -1128,3 +1175,181 @@ fun FrostedFloatingNavRail(
         }
     }
 }
+
+/**
+ * Nothing-inspired Monochrome Glyph Bottom Dock:
+ * Pure monochrome capsule with 1.dp hairline frame, inverted active pill, and restrained red dot indicator.
+ */
+@Composable
+fun GlyphBottomNavDock(
+    destinations: List<DockDestinationSpec>,
+    currentRoute: String,
+    onSelectRoute: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptics = rememberStudioHaptics()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(30.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            modifier = Modifier
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
+                .testTag("bottom_navigation_bar")
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                destinations.forEach { dest ->
+                    val selected = currentRoute == dest.route
+                    val pillBg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    val fg = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .minimumInteractiveComponentSize()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(pillBg)
+                            .clickable {
+                                if (currentRoute != dest.route) haptics.performTick(20L)
+                                onSelectRoute(dest.route)
+                            }
+                            .padding(horizontal = 6.dp, vertical = 7.dp)
+                            .testTag("nav_${dest.route}")
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.TopEnd) {
+                                Icon(
+                                    imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
+                                    contentDescription = dest.label,
+                                    tint = fg,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                if (selected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(5.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFD92B2B))
+                                    )
+                                }
+                            }
+                            Text(
+                                text = dest.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = fg,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GlyphNavRail(
+    destinations: List<DockDestinationSpec>,
+    currentRoute: String,
+    onSelectRoute: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptics = rememberStudioHaptics()
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(start = 10.dp, top = 10.dp, bottom = 10.dp)
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            modifier = Modifier
+                .fillMaxHeight()
+                .testTag("glyph_nav_rail")
+        ) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BackdropLogoMark(size = 32.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                destinations.forEach { dest ->
+                    val selected = currentRoute == dest.route
+                    val itemBg = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    val tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(itemBg)
+                            .clickable {
+                                if (currentRoute != dest.route) haptics.performTick(20L)
+                                onSelectRoute(dest.route)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                            .minimumInteractiveComponentSize()
+                            .testTag("nav_${dest.route}")
+                    ) {
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            Icon(
+                                imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
+                                contentDescription = dest.label,
+                                tint = tint,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            if (selected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(5.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFD92B2B))
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = dest.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = tint,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

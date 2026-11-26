@@ -3,10 +3,16 @@ package com.example.engine.performance
 import android.app.ActivityManager
 import android.content.ComponentCallbacks2
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.net.Uri
+import android.os.BatteryManager
+import android.os.PowerManager
 import android.util.LruCache
 import coil.request.CachePolicy
 import coil.request.ErrorResult
@@ -20,12 +26,16 @@ import com.example.data.model.LiquidGlassTier
 import com.example.data.model.LockScreenSetDoc
 import com.example.data.model.UserPreferencesDoc
 import com.example.data.model.Wallpaper
+import com.example.data.model.WallpaperMotionMode
 import com.example.data.repository.GuestLocalUserStore
+import com.example.data.weather.OpenMeteoWeatherRepository
+import com.example.data.weather.WeatherTelemetryState
 import com.example.engine.crash.ZeroCrashEngine
 import com.example.engine.depth.DepthDetectionEngine
 import com.example.engine.depth.OnlineVisionDepthSolver
 import com.example.engine.overlay.resolveActiveLockArtwork
 import com.example.ui.components.ClockDesignConfig
+import com.example.ui.components.StudioWidgetSystemBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,8 +76,52 @@ data class InstantLockWarmState(
     val wallpaperBitmap: Bitmap?,
     val cutoutBitmap: Bitmap?,
     val warmedAtMs: Long,
-    val artworkKey: String = ""
+    val artworkKey: String = "",
+    val batteryPercent: Int = 100,
+    val isCharging: Boolean = false,
+    val weatherCompact: String = "READY",
+    val nextCalendarEvent: String = "",
+    val mediaTitle: String = "",
+    val mediaArtist: String = "",
+    val mediaIsPlaying: Boolean = false
 )
+
+/**
+ * Hardware-guarded eligibility resolver for subtle wallpaper motion.
+ * Automatically disables parallax/drift under Low-RAM, Power-Save, Reduced Motion, or missing gyro hardware.
+ */
+object WallpaperMotionEligibility {
+
+    fun hasGyroscope(context: Context): Boolean {
+        val sm = context.applicationContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+            ?: return false
+        return sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null ||
+            sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null
+    }
+
+    fun isPowerSaveEnabled(context: Context): Boolean {
+        val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            ?: return false
+        return pm.isPowerSaveMode
+    }
+
+    fun resolveEffectiveMode(
+        context: Context,
+        requestedMode: WallpaperMotionMode,
+        reducedMotionEnabled: Boolean
+    ): WallpaperMotionMode {
+        if (requestedMode == WallpaperMotionMode.STATIC || reducedMotionEnabled) return WallpaperMotionMode.STATIC
+        if (isPowerSaveEnabled(context)) return WallpaperMotionMode.STATIC
+        val tier = ZeroLagPerformanceEngine.classifyTier(context)
+        if (tier == PerformanceTier.LOW_RAM) return WallpaperMotionMode.STATIC
+        return when (requestedMode) {
+            WallpaperMotionMode.SUBTLE_PARALLAX ->
+                if (hasGyroscope(context)) WallpaperMotionMode.SUBTLE_PARALLAX else WallpaperMotionMode.AMBIENT_DRIFT
+            WallpaperMotionMode.AMBIENT_DRIFT -> WallpaperMotionMode.AMBIENT_DRIFT
+            WallpaperMotionMode.STATIC -> WallpaperMotionMode.STATIC
+        }
+    }
+}
 
 /**
  * Hardware-adaptive Zero Lag & Preloading Catcher Engine V5 (Backdrops 1.5):
@@ -572,6 +626,56 @@ object ZeroLagPerformanceEngine {
                 cutoutBitmap = resolvedCutout,
                 artworkKey = artworkKey,
                 activeSetId = activeSetId
+            )
+            warmTelemetrySnapshot(appContext)
+        }
+
+        /**
+         * Pre-warms real device telemetry (battery, weather summary, active media, next calendar event)
+         * for Backdrop Glance Pill & lock-screen widgets on wake.
+         */
+        fun warmTelemetrySnapshot(context: Context) {
+            val appContext = context.applicationContext
+            val batterySticky = runCatching {
+                appContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            }.getOrNull()
+            val batteryPct = if (batterySticky != null) {
+                val lvl = batterySticky.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scl = batterySticky.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+                if (lvl >= 0 && scl > 0) ((lvl * 100f) / scl).toInt().coerceIn(0, 100)
+                else OpenMeteoWeatherRepository.readBatteryPercent(appContext)
+            } else {
+                OpenMeteoWeatherRepository.readBatteryPercent(appContext)
+            }
+            val batteryStatus = batterySticky?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val chargingNow = batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
+                batteryStatus == BatteryManager.BATTERY_STATUS_FULL
+
+            val weatherReady = OpenMeteoWeatherRepository.state.value as? WeatherTelemetryState.Ready
+            val weatherLabel = weatherReady?.compactReadout ?: "READY"
+            val nextEvent = StudioWidgetSystemBridge.loadUpcomingCalendarEvents(appContext, limit = 1)
+                .firstOrNull()
+                ?.let { "${it.title} • ${it.timeLabel}" }
+                .orEmpty()
+            val mediaState = StudioWidgetSystemBridge.readActiveMediaState(appContext)
+
+            val existing = _warmState.value ?: InstantLockWarmState(
+                activeSetId = "",
+                wallpaperId = "",
+                clockConfigJson = "",
+                wallpaperBitmap = null,
+                cutoutBitmap = null,
+                warmedAtMs = System.currentTimeMillis()
+            )
+            _warmState.value = existing.copy(
+                batteryPercent = batteryPct,
+                isCharging = chargingNow,
+                weatherCompact = weatherLabel,
+                nextCalendarEvent = nextEvent,
+                mediaTitle = if (mediaState.hasSession) mediaState.title else "",
+                mediaArtist = if (mediaState.hasSession) mediaState.artist else "",
+                mediaIsPlaying = mediaState.hasSession && mediaState.isPlaying,
+                warmedAtMs = System.currentTimeMillis()
             )
         }
 

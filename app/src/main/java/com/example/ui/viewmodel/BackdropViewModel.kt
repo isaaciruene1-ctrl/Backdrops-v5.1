@@ -25,11 +25,14 @@ import com.example.data.model.LockCredentialHasher
 import com.example.data.model.LockCredentialType
 import com.example.data.model.LockNotificationStyleConfig
 import com.example.data.model.LockScreenSetDoc
+import com.example.data.model.LockShortcutConfig
 import com.example.data.model.MaterialNavStyle
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.ResolutionTier
 import com.example.data.model.SearchFilters
 import com.example.data.model.SearchSort
 import com.example.data.model.StudioWidgetItem
+import com.example.data.model.StudioWidgetType
 import com.example.data.model.ThemeMode
 import com.example.data.model.UiStyleMode
 import com.example.data.model.UnlockButtonThemeConfig
@@ -37,6 +40,7 @@ import com.example.data.model.UserCollectionDoc
 import com.example.data.model.UserPreferencesDoc
 import com.example.data.model.Wallpaper
 import com.example.data.model.WallpaperCategory
+import com.example.data.model.WallpaperMotionMode
 import com.example.data.repository.GuestLocalUserStore
 import com.example.data.repository.UserSyncDataSource
 import kotlinx.coroutines.Dispatchers
@@ -847,7 +851,7 @@ class BackdropViewModel(
         viewModelScope.launch {
             syncRepository.updatePreferences(currentUserId) {
                 it.copy(
-                    offlinePackTargetCount = targetCount.coerceIn(25, 300),
+                    offlinePackTargetCount = targetCount.coerceIn(25, 100),
                     offlineDownloadedIds = downloadedIds.distinct(),
                     offlinePackStatus = status
                 )
@@ -939,6 +943,72 @@ class BackdropViewModel(
         }
     }
 
+    fun setExploreCuratedShelfEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(exploreCuratedShelfEnabled = enabled) }
+        }
+    }
+
+    fun setGlancePillEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { prefs ->
+                prefs.copy(
+                    glancePillEnabled = enabled,
+                    glancePillCoexistWithWidgets = if (enabled) false else prefs.glancePillCoexistWithWidgets
+                )
+            }
+        }
+    }
+
+    fun setGlancePillCoexistWithWidgets(enabled: Boolean) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(glancePillCoexistWithWidgets = enabled) }
+        }
+    }
+
+    fun setMediaPlayerSizeTier(tier: MediaPlayerSizeTier) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(mediaPlayerSizeTier = tier.name) }
+        }
+    }
+
+    fun setWidgetPageWidgets(widgets: List<StudioWidgetItem>) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) {
+                it.copy(widgetPageWidgetsJson = StudioWidgetItem.listToJson(widgets))
+            }
+        }
+    }
+
+    fun setInlineTopWidget(enabled: Boolean, type: StudioWidgetType? = null) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { prefs ->
+                prefs.copy(
+                    inlineTopWidgetEnabled = enabled,
+                    inlineTopWidgetType = type?.name ?: prefs.inlineTopWidgetType
+                )
+            }
+        }
+    }
+
+    fun setLeftShortcut(config: LockShortcutConfig) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(leftShortcutJson = config.toJsonString()) }
+        }
+    }
+
+    fun setRightShortcut(config: LockShortcutConfig) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(rightShortcutJson = config.toJsonString()) }
+        }
+    }
+
+    fun setWallpaperMotionMode(mode: WallpaperMotionMode) {
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { it.copy(wallpaperMotionMode = mode.name) }
+        }
+    }
+
     fun resetMaterial3Customizations() {
         viewModelScope.launch {
             syncRepository.updatePreferences(currentUserId) { prefs ->
@@ -993,6 +1063,38 @@ class BackdropViewModel(
                 )
             }
             _events.tryEmit("Restored default preferences (Lock-Screen Sets kept)")
+        }
+    }
+
+    fun resetLockSetup() {
+        val defaults = UserPreferencesDoc()
+        viewModelScope.launch {
+            syncRepository.updatePreferences(currentUserId) { prefs ->
+                prefs.copy(
+                    glancePillEnabled = defaults.glancePillEnabled,
+                    glancePillCoexistWithWidgets = defaults.glancePillCoexistWithWidgets,
+                    mediaPlayerSizeTier = defaults.mediaPlayerSizeTier,
+                    inlineTopWidgetEnabled = defaults.inlineTopWidgetEnabled,
+                    inlineTopWidgetType = defaults.inlineTopWidgetType,
+                    leftShortcutJson = defaults.leftShortcutJson,
+                    rightShortcutJson = defaults.rightShortcutJson,
+                    wallpaperMotionMode = defaults.wallpaperMotionMode,
+                    studioWidgetsJson = defaults.studioWidgetsJson,
+                    widgetPageWidgetsJson = defaults.widgetPageWidgetsJson,
+                    chargingAnimationJson = defaults.chargingAnimationJson,
+                    notificationStyleJson = defaults.notificationStyleJson,
+                    unlockButtonThemeJson = defaults.unlockButtonThemeJson,
+                    showUnlockButtonOnLockScreen = defaults.showUnlockButtonOnLockScreen,
+                    dragToExpandNotifications = defaults.dragToExpandNotifications,
+                    secondaryWidgetPagePosition = defaults.secondaryWidgetPagePosition,
+                    secondaryWidgetPageLeft = defaults.secondaryWidgetPageLeft,
+                    lockScreenMaxWidgets = defaults.lockScreenMaxWidgets,
+                    widgetPageMaxWidgets = defaults.widgetPageMaxWidgets,
+                    samsungMediaPillEnabled = defaults.samsungMediaPillEnabled,
+                    pixelChargingWaveEnabled = defaults.pixelChargingWaveEnabled
+                )
+            }
+            _events.tryEmit("Reset Lock Screen setup to defaults")
         }
     }
 

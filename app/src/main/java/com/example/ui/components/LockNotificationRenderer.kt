@@ -2,9 +2,7 @@ package com.example.ui.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -63,20 +61,22 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.data.model.LockNotificationStyleConfig
 import com.example.data.model.NotificationLayoutMode
 import com.example.data.model.NotificationStylePreset
+import com.example.data.model.UiStyleMode
 import com.example.engine.notifications.LockNotificationGroup
 import com.example.engine.notifications.LockNotificationItem
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalThemeCustomization
 import com.example.ui.theme.LocalUiStyleMode
@@ -84,7 +84,6 @@ import com.example.ui.theme.rememberStudioHaptics
 import java.text.DateFormat
 import java.util.Date
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 @Immutable
 data class NotificationLayoutBounds(
@@ -185,38 +184,47 @@ fun LockScreenNotificationsSection(
             detectVerticalDragGestures(
                 onVerticalDrag = { change, dragAmount ->
                     change.consume()
+                    // Keep layout tree stable during drag: update local visual fraction only
                     val delta = (-dragAmount / 240f)
-                    val next = (dragExpansionFraction + delta).coerceIn(0f, 1f)
-                    dragExpansionFraction = next
-                    onDragExpansionChange?.invoke(next)
-                    if (next >= 0.45f && !isStackExpanded && !isCountExpanded) {
-                        isStackExpanded = true
-                        isCountExpanded = true
-                    } else if (next < 0.25f && (isStackExpanded || isCountExpanded)) {
-                        isStackExpanded = false
-                        isCountExpanded = false
-                    }
+                    dragExpansionFraction = (dragExpansionFraction + delta).coerceIn(0f, 1f)
                 },
                 onDragEnd = {
-                    setExpandedState(dragExpansionFraction >= 0.35f)
+                    val expandNow = if (isStackExpanded || isCountExpanded) {
+                        dragExpansionFraction >= 0.55f
+                    } else {
+                        dragExpansionFraction >= 0.30f
+                    }
+                    setExpandedState(expandNow)
                 },
                 onDragCancel = {
-                    setExpandedState(dragExpansionFraction >= 0.35f)
+                    setExpandedState(isStackExpanded || isCountExpanded)
                 }
             )
         }
     } else Modifier
 
     val uiStyle = LocalUiStyleMode.current
+    val isGlyphUi = uiStyle == UiStyleMode.GLYPH_UI
     val reducedMotion = LocalReducedMotionFlag.current
     val motionSpeed = LocalThemeCustomization.current.m3MotionSpeed
+    val dragLiftScale by animateFloatAsState(
+        targetValue = if (!isStackExpanded && !isCountExpanded && dragExpansionFraction > 0.02f) {
+            1f + (dragExpansionFraction * 0.025f)
+        } else 1f,
+        animationSpec = AppMotion.lockNotificationDeckSpring(uiStyle, reducedMotion, motionSpeed),
+        label = "notif_drag_lift_scale"
+    )
 
     Column(
         modifier = modifier
             .widthIn(max = 520.dp)
             .fillMaxWidth()
             .then(dragExpandGestureModifier)
-            .animateContentSize(AppMotion.lockNotificationDeckSpring(uiStyle, reducedMotion, motionSpeed)),
+            .graphicsLayer {
+                scaleX = dragLiftScale
+                scaleY = dragLiftScale
+                translationY = if (!isStackExpanded && !isCountExpanded) -dragExpansionFraction * 10f else 0f
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -232,7 +240,10 @@ fun LockScreenNotificationsSection(
                     modifier = Modifier
                         .size(width = 42.dp, height = 4.dp)
                         .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = if (dragExpansionFraction > 0.3f) 0.72f else 0.42f))
+                        .background(
+                            if (isGlyphUi && dragExpansionFraction > 0.3f) Color(0xFFD92B2B)
+                            else Color.White.copy(alpha = if (dragExpansionFraction > 0.3f) 0.72f else 0.42f)
+                        )
                 )
             }
         }
@@ -257,9 +268,16 @@ fun LockScreenNotificationsSection(
                             Surface(
                                 onClick = { setExpandedState(true) },
                                 shape = RoundedCornerShape(50),
-                                color = Color(0xFF161922).copy(alpha = (safeCfg.transparency * 0.92f).coerceIn(0.45f, 0.94f)),
-                                border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.16f)),
-                                shadowElevation = (safeCfg.shadowIntensity * 8f).dp,
+                                color = if (isGlyphUi) {
+                                    Color(0xFF101010)
+                                } else {
+                                    Color(0xFF161922).copy(alpha = (safeCfg.transparency * 0.92f).coerceIn(0.45f, 0.94f))
+                                },
+                                border = BorderStroke(
+                                    if (isGlyphUi) 1.dp else 0.8.dp,
+                                    if (isGlyphUi) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.16f)
+                                ),
+                                shadowElevation = if (isGlyphUi) 0.dp else (safeCfg.shadowIntensity * 8f).dp,
                                 modifier = Modifier.testTag("lockscreen_notif_count_pill")
                             ) {
                                 Row(
@@ -365,7 +383,7 @@ private fun IosOverlappingNotificationDeck(
     val uiStyle = LocalUiStyleMode.current
     val reducedMotion = LocalReducedMotionFlag.current
     val motionSpeed = LocalThemeCustomization.current.m3MotionSpeed
-    val deckSpringDp = AppMotion.lockNotificationDeckSpring<Dp>(uiStyle, reducedMotion, motionSpeed)
+    val density = LocalDensity.current
     val deckSpringFloat = AppMotion.lockNotificationDeckSpring<Float>(uiStyle, reducedMotion, motionSpeed)
 
     Box(
@@ -375,14 +393,14 @@ private fun IosOverlappingNotificationDeck(
             .testTag("lockscreen_notif_stacked_deck"),
         contentAlignment = Alignment.TopCenter
     ) {
-        // Render back-to-front so frontmost (index 0) cleanly overlaps older cards
+        // Render back-to-front so frontmost (index 0) cleanly overlaps older cards using GPU translationY
         for (layerIndex in visibleStack.indices.reversed()) {
             val item = visibleStack[layerIndex]
             key(item.key) {
-                val targetOffsetY by animateDpAsState(
-                    targetValue = (layerIndex * 13).dp,
-                    animationSpec = deckSpringDp,
-                    label = "stack_offset_y_$layerIndex"
+                val targetOffsetPx by animateFloatAsState(
+                    targetValue = with(density) { (layerIndex * 13).dp.toPx() },
+                    animationSpec = deckSpringFloat,
+                    label = "stack_offset_y_px_$layerIndex"
                 )
                 val targetScale by animateFloatAsState(
                     targetValue = (1f - layerIndex * 0.055f).coerceIn(0.84f, 1f),
@@ -403,8 +421,8 @@ private fun IosOverlappingNotificationDeck(
                 val cardModifier = Modifier
                     .fillMaxWidth()
                     .zIndex((10 - layerIndex).toFloat())
-                    .offset(y = targetOffsetY)
                     .graphicsLayer {
+                        translationY = targetOffsetPx
                         scaleX = targetScale
                         scaleY = targetScale
                         alpha = targetAlpha
@@ -563,20 +581,33 @@ private fun IosNotificationCardSurface(
         label = "notif_swipe_x"
     )
 
+    val isGlyphUi = uiStyle == UiStyleMode.GLYPH_UI
     val corner = styleConfig.cornerRadiusDp.dp
     val shape = RoundedCornerShape(corner)
-    val baseBg = styleConfig.customBackgroundArgb?.let { Color(it.toInt()) } ?: when (styleConfig.preset) {
-        NotificationStylePreset.APPLE_IOS -> Color(0xFF1A1D26)
-        NotificationStylePreset.XIAOMI_HYPEROS -> Color(0xFF171D28)
-        NotificationStylePreset.SAMSUNG_ONE_UI -> Color(0xFF141820)
-        NotificationStylePreset.GOOGLE_PIXEL -> lerp(Color(0xFF1C2029), accentColor, 0.16f)
-        NotificationStylePreset.MINIMAL -> Color(0xFF10131A)
-        NotificationStylePreset.GLASS -> Color(0xFF1D2330)
-        NotificationStylePreset.FLOATING -> Color(0xFF141822)
-        NotificationStylePreset.COMPACT -> Color(0xFF12151E)
+    val baseBg = if (isGlyphUi) {
+        Color(0xFF121212)
+    } else {
+        styleConfig.customBackgroundArgb?.let { Color(it.toInt()) } ?: when (styleConfig.preset) {
+            NotificationStylePreset.APPLE_IOS -> Color(0xFF1A1D26)
+            NotificationStylePreset.XIAOMI_HYPEROS -> Color(0xFF171D28)
+            NotificationStylePreset.SAMSUNG_ONE_UI -> Color(0xFF141820)
+            NotificationStylePreset.GOOGLE_PIXEL -> lerp(Color(0xFF1C2029), accentColor, 0.16f)
+            NotificationStylePreset.MINIMAL -> Color(0xFF10131A)
+            NotificationStylePreset.GLASS -> Color(0xFF1D2330)
+            NotificationStylePreset.FLOATING -> Color(0xFF141822)
+            NotificationStylePreset.COMPACT -> Color(0xFF12151E)
+        }
     }
-    val containerColor = baseBg.copy(alpha = styleConfig.transparency.coerceIn(0.42f, 0.94f))
-    val borderColor = Color.White.copy(alpha = (0.12f + styleConfig.blurIntensity * 0.08f).coerceIn(0.08f, 0.22f))
+    val containerColor = if (isGlyphUi) {
+        baseBg.copy(alpha = styleConfig.transparency.coerceIn(0.82f, 0.96f))
+    } else {
+        baseBg.copy(alpha = styleConfig.transparency.coerceIn(0.42f, 0.94f))
+    }
+    val borderColor = if (isGlyphUi) {
+        Color.White.copy(alpha = 0.28f)
+    } else {
+        Color.White.copy(alpha = (0.12f + styleConfig.blurIntensity * 0.08f).coerceIn(0.08f, 0.22f))
+    }
     val masked = hideSensitive && item.isSensitive
 
     val swipeModifier = if (allowSwipeDismiss) {
@@ -606,11 +637,11 @@ private fun IosNotificationCardSurface(
     Surface(
         shape = shape,
         color = containerColor,
-        border = BorderStroke(0.75.dp, borderColor),
-        shadowElevation = (styleConfig.shadowIntensity * 6f).dp,
+        border = BorderStroke(if (isGlyphUi) 1.dp else 0.75.dp, borderColor),
+        shadowElevation = if (isGlyphUi) 0.dp else (styleConfig.shadowIntensity * 6f).dp,
         modifier = modifier
-            .offset { IntOffset(animatedDragX.roundToInt(), 0) }
             .graphicsLayer {
+                translationX = animatedDragX
                 alpha = (1f - (abs(animatedDragX) / 420f)).coerceIn(0.25f, 1f)
             }
             .then(swipeModifier)
@@ -680,19 +711,22 @@ private fun IosNotificationCardSurface(
                             if (styleConfig.showTimestamp && formattedTime.isNotBlank()) {
                                 Text(
                                     text = formattedTime,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFeatureSettings = "tnum",
+                                        fontFamily = if (isGlyphUi) JetBrainsMonoFontFamily else MaterialTheme.typography.labelSmall.fontFamily
+                                    ),
                                     color = Color.White.copy(alpha = 0.62f)
                                 )
                             }
                             if (stackCountBadge != null && stackCountBadge > 1) {
                                 Surface(
-                                    color = Color.White.copy(alpha = 0.14f),
+                                    color = if (isGlyphUi) Color(0xFFD92B2B) else Color.White.copy(alpha = 0.14f),
                                     shape = RoundedCornerShape(50)
                                 ) {
                                     Text(
                                         text = "+${stackCountBadge - 1} more",
                                         fontSize = 10.sp,
-                                        color = Color.White.copy(alpha = 0.90f),
+                                        color = Color.White,
                                         fontWeight = FontWeight.Medium,
                                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
                                     )

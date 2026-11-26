@@ -1,7 +1,13 @@
 package com.example.ui.components
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -12,12 +18,16 @@ import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +53,18 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BatteryChargingFull
+import androidx.compose.material.icons.rounded.Calculate
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FlashlightOff
+import androidx.compose.material.icons.rounded.FlashlightOn
+import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
@@ -51,8 +72,12 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.OpenWith
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,10 +88,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +103,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -86,6 +114,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -100,27 +129,42 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.model.ChargingAnimationConfig
 import com.example.data.model.ChargingAnimationPreset
 import com.example.data.model.ChargingPosition
+import com.example.data.model.GlanceCardType
+import com.example.data.model.LockShortcutAction
+import com.example.data.model.LockShortcutConfig
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.SecondaryWidgetPagePosition
 import com.example.data.model.StudioWidgetItem
+import com.example.data.model.StudioWidgetType
 import com.example.data.model.UiStyleMode
 import com.example.data.model.UnlockButtonStyle
 import com.example.data.model.UnlockButtonThemeConfig
 import com.example.data.model.UserPreferencesDoc
 import com.example.data.model.Wallpaper
+import com.example.data.model.WallpaperMotionMode
 import com.example.engine.notifications.LockNotificationGroup
 import com.example.engine.notifications.LockNotificationItem
+import com.example.engine.overlay.LockShortcutExecutor
+import com.example.engine.performance.ZeroLagPerformanceEngine
 import com.example.ui.screens.CanvasLookFilter
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
+import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalThemeCustomization
 import com.example.ui.theme.LocalUiStyleMode
 import com.example.ui.theme.rememberStudioHaptics
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -163,6 +207,9 @@ fun SharedLockScreenRenderer(
     onClearAllNotifications: () -> Unit = {},
     onUpdateWidgetItem: ((StudioWidgetItem) -> Unit)? = null,
     onUpdateWidgetsList: ((List<StudioWidgetItem>) -> Unit)? = null,
+    onCycleMediaSizeTier: ((MediaPlayerSizeTier) -> Unit)? = null,
+    onExecuteShortcut: ((LockShortcutConfig) -> Unit)? = null,
+    motionMode: WallpaperMotionMode = preferences.parsedWallpaperMotionMode,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -172,6 +219,7 @@ fun SharedLockScreenRenderer(
     val motionSpeed = LocalThemeCustomization.current.m3MotionSpeed
     val haptics = rememberStudioHaptics()
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
 
     val primaryColor = clockConfig.customPrimaryArgb?.let { Color(it.toInt()) } ?: Color(0xFFF6F8FC)
     val secondaryColor = clockConfig.customSecondaryArgb?.let { Color(it.toInt()) }
@@ -189,6 +237,9 @@ fun SharedLockScreenRenderer(
     }
     val studioWidgets = remember(preferences.studioWidgetsJson) {
         preferences.parsedStudioWidgets
+    }
+    val widgetPageWidgets = remember(preferences.widgetPageWidgetsJson) {
+        preferences.parsedWidgetPageWidgets
     }
     val latestWidgets by rememberUpdatedState(studioWidgets)
     val latestOnUpdateWidgetItem by rememberUpdatedState(onUpdateWidgetItem)
@@ -211,8 +262,10 @@ fun SharedLockScreenRenderer(
 
     val maxLockWidgets = preferences.safeLockScreenMaxWidgets
     val maxPageWidgets = preferences.safeWidgetPageMaxWidgets
-    val visibleLockWidgets = remember(studioWidgets, maxLockWidgets) {
-        studioWidgets.filter { it.enabled }.sortedBy { it.sortOrder }.take(maxLockWidgets)
+    val widgetsEffective = preferences.areMainLockWidgetsEffective
+    val visibleLockWidgets = remember(studioWidgets, maxLockWidgets, widgetsEffective) {
+        if (!widgetsEffective) emptyList()
+        else studioWidgets.filter { it.enabled }.sortedBy { it.sortOrder }.take(maxLockWidgets)
     }
     val stripWidgets = remember(visibleLockWidgets) {
         visibleLockWidgets.filter { !it.isFreePositioned }
@@ -240,14 +293,15 @@ fun SharedLockScreenRenderer(
         }
     }
 
+    val needMediaTelemetry = preferences.glancePillEnabled || preferences.isStandaloneMediaPlayerActive
     var samsungPillMedia by remember {
         mutableStateOf(
-            if (preferences.samsungMediaPillEnabled) StudioWidgetSystemBridge.readActiveMediaState(context)
+            if (needMediaTelemetry) StudioWidgetSystemBridge.readActiveMediaState(context)
             else ActiveMediaPlaybackState()
         )
     }
-    LaunchedEffect(preferences.samsungMediaPillEnabled) {
-        if (!preferences.samsungMediaPillEnabled) {
+    LaunchedEffect(needMediaTelemetry) {
+        if (!needMediaTelemetry) {
             samsungPillMedia = ActiveMediaPlaybackState()
         } else {
             while (true) {
@@ -255,6 +309,66 @@ fun SharedLockScreenRenderer(
                 delay(1000L)
             }
         }
+    }
+
+    var localMediaTier by remember(preferences.mediaPlayerSizeTier) {
+        mutableStateOf(preferences.parsedMediaPlayerSizeTier)
+    }
+    var torchActive by remember { mutableStateOf(LockShortcutExecutor.isTorchOn()) }
+    DisposableEffect(context) {
+        val unregister = LockShortcutExecutor.registerTorchObserver(context) { enabled ->
+            torchActive = enabled
+        }
+        onDispose { unregister() }
+    }
+
+    val effectiveMotionMode = remember(motionMode, reducedMotion) {
+        com.example.engine.performance.WallpaperMotionEligibility.resolveEffectiveMode(
+            context = context,
+            requestedMode = motionMode,
+            reducedMotionEnabled = reducedMotion
+        )
+    }
+    var parallaxOffsetX by remember { mutableFloatStateOf(0f) }
+    var parallaxOffsetY by remember { mutableFloatStateOf(0f) }
+    DisposableEffect(effectiveMotionMode, context) {
+        if (effectiveMotionMode != WallpaperMotionMode.SUBTLE_PARALLAX) {
+            parallaxOffsetX = 0f
+            parallaxOffsetY = 0f
+            onDispose { }
+        } else {
+            val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+            val rotSensor = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+            val listener = object : SensorEventListener {
+                private val rotMat = FloatArray(9)
+                private val ori = FloatArray(3)
+                override fun onSensorChanged(event: SensorEvent) {
+                    SensorManager.getRotationMatrixFromVector(rotMat, event.values)
+                    SensorManager.getOrientation(rotMat, ori)
+                    val roll = ori[2].coerceIn(-0.45f, 0.45f)
+                    val pitch = (ori[1] + 0.55f).coerceIn(-0.45f, 0.45f)
+                    parallaxOffsetX = (roll / 0.45f) * 18f
+                    parallaxOffsetY = (pitch / 0.45f) * 14f
+                }
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+            if (sm != null && rotSensor != null) {
+                sm.registerListener(listener, rotSensor, SensorManager.SENSOR_DELAY_UI)
+            }
+            onDispose { sm?.unregisterListener(listener) }
+        }
+    }
+    val driftPhase = if (effectiveMotionMode == WallpaperMotionMode.AMBIENT_DRIFT) {
+        val driftTrans = rememberInfiniteTransition(label = "wallpaper_ambient_drift")
+        val p by driftTrans.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(14000, easing = LinearEasing), RepeatMode.Restart),
+            label = "ambient_drift_phase"
+        )
+        p
+    } else {
+        0f
     }
 
     LaunchedEffect(expandedMediaState != null) {
@@ -295,15 +409,31 @@ fun SharedLockScreenRenderer(
         // 1. Background Wallpaper + Transform + Look Filter
         val validCustomBmp = customBitmap?.takeIf { !it.isRecycled && it.width > 0 && it.height > 0 }
         val validPrimaryBmp = validCustomBmp ?: backdropBitmap?.takeIf { !it.isRecycled && it.width > 0 && it.height > 0 }
+        val motionOverscan = when (effectiveMotionMode) {
+            WallpaperMotionMode.SUBTLE_PARALLAX -> 1.06f
+            WallpaperMotionMode.AMBIENT_DRIFT -> 1.04f
+            WallpaperMotionMode.STATIC -> 1.0f
+        }
+        val motionShiftX = when (effectiveMotionMode) {
+            WallpaperMotionMode.SUBTLE_PARALLAX -> parallaxOffsetX
+            WallpaperMotionMode.AMBIENT_DRIFT -> cos(driftPhase) * 10f
+            WallpaperMotionMode.STATIC -> 0f
+        }
+        val motionShiftY = when (effectiveMotionMode) {
+            WallpaperMotionMode.SUBTLE_PARALLAX -> parallaxOffsetY
+            WallpaperMotionMode.AMBIENT_DRIFT -> sin(driftPhase) * 7f
+            WallpaperMotionMode.STATIC -> 0f
+        }
         val artworkModifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
+                val baseS = if (customBitmap == null) zoomScale.coerceIn(0.85f, 4.0f) else 1f
+                val s = baseS * motionOverscan
+                scaleX = s
+                scaleY = s
+                translationX = (if (customBitmap == null) panOffset.x else 0f) + motionShiftX
+                translationY = (if (customBitmap == null) panOffset.y else 0f) + motionShiftY
                 if (customBitmap == null) {
-                    val s = zoomScale.coerceIn(0.85f, 4.0f)
-                    scaleX = s
-                    scaleY = s
-                    translationX = panOffset.x
-                    translationY = panOffset.y
                     rotationZ = rotationDegrees
                 }
             }
@@ -349,7 +479,12 @@ fun SharedLockScreenRenderer(
         val showChargingNow = (chargingConfig.enabled && chargingConfig.preset != ChargingAnimationPreset.OFF && (isCharging || previewChargingOverlay)) ||
             (preferences.pixelChargingWaveEnabled && (isCharging || previewChargingOverlay))
         val showUnlockBar = showChromeControls && preferences.showUnlockButtonOnLockScreen && expandedMediaState == null
-        val showSamsungMediaPill = preferences.samsungMediaPillEnabled && expandedMediaState == null
+        val showGlancePill = showChromeControls && preferences.glancePillEnabled && expandedMediaState == null
+        val showStandaloneMediaPlayer = showChromeControls && preferences.isStandaloneMediaPlayerActive && expandedMediaState == null
+        val leftShortcut = remember(preferences.leftShortcutJson) { preferences.parsedLeftShortcut }
+        val rightShortcut = remember(preferences.rightShortcutJson) { preferences.parsedRightShortcut }
+        val hasCornerShortcuts = showChromeControls && expandedMediaState == null &&
+            (leftShortcut.action != LockShortcutAction.NONE || rightShortcut.action != LockShortcutAction.NONE)
 
         @Composable
         fun PrimaryLockCanvasPage() {
@@ -419,6 +554,25 @@ fun SharedLockScreenRenderer(
                 // Clock positioned accurately via ClockSpatialMath.computeClockBoxRect (with live headroom morph)
                 val clockLeftPx = resolvedClockBox.leftPx.roundToInt()
                 val clockTopPx = resolvedClockBox.topPx.roundToInt()
+
+                if (preferences.inlineTopWidgetEnabled) {
+                    val barY = (clockTopPx - with(density) { 26.dp.toPx() }.roundToInt()).coerceAtLeast(with(density) { 12.dp.toPx() }.roundToInt())
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset { IntOffset(x = 0, y = barY) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        StudioInlineTopWidgetBar(
+                            widgetType = preferences.parsedInlineTopWidgetType ?: StudioWidgetType.QUICK_INFO,
+                            telemetry = telemetry,
+                            isCharging = isCharging,
+                            is24HourFormat = effectiveClockConfig.is24HourFormat,
+                            onDarkSurface = true
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier.offset { IntOffset(x = clockLeftPx, y = clockTopPx) }
                 ) {
@@ -588,10 +742,15 @@ fun SharedLockScreenRenderer(
                 val maxTopForStrip = (viewportMaxHeight - 170.dp).coerceAtLeast(110.dp)
                 val topClearanceDp = maxOf(clockBottomDp + 10.dp, viewportMaxHeight * 0.16f).coerceAtMost(maxTopForStrip)
                 val widgetReserveDp = if (hasStripWidgets) 126f else 0f
-                val unlockReserveDp = if (showUnlockBar) 88f else 12f
-                val mediaPillReserveDp = if (showSamsungMediaPill) 66f else 0f
-                val chargingReserveDp = if (showChargingNow && (chargingConfig.position == ChargingPosition.BOTTOM || preferences.pixelChargingWaveEnabled)) 54f else 0f
-                val bottomReserveDp = unlockReserveDp + mediaPillReserveDp + chargingReserveDp + 12f
+                val unlockReserveDp = when {
+                    showGlancePill && showUnlockBar -> 124f
+                    showGlancePill || hasCornerShortcuts -> 74f
+                    showUnlockBar -> 88f
+                    else -> 12f
+                }
+                val mediaPillReserveDp = if (showStandaloneMediaPlayer) (localMediaTier.heightDp + 12f) else 0f
+                val chargingReserveDp = if (showChargingNow && (chargingConfig.position == ChargingPosition.BOTTOM || preferences.pixelChargingWaveEnabled)) 62f else 0f
+                val bottomReserveDp = unlockReserveDp + mediaPillReserveDp + chargingReserveDp + 14f
 
                 val notifZone = LockScreenNotificationLayoutSolver.solveAvailableZone(
                     viewportHeightDp = viewportMaxHeight.value,
@@ -713,24 +872,49 @@ fun SharedLockScreenRenderer(
                     )
                 }
 
-                // Bottom Chrome Stack: Samsung One UI Permanent Media Pill + Optional Unlock Button (reflows cleanly when Unlock OFF)
-                if ((showSamsungMediaPill || showUnlockBar) && expandedMediaState == null) {
+                // Bottom Chrome Stack: Resizable Compact Media Player, Optional Unlock Button, and Bottom-Center Glance Pill + L/R Shortcuts
+                if ((showStandaloneMediaPlayer || showGlancePill || showUnlockBar || hasCornerShortcuts) && expandedMediaState == null) {
+                    val dispatchShortcut: (LockShortcutConfig) -> Unit = { cfg ->
+                        haptics.performTick(20L)
+                        if (onExecuteShortcut != null) {
+                            onExecuteShortcut(cfg)
+                        } else {
+                            LockShortcutExecutor.executeShortcut(context, cfg)
+                        }
+                    }
+
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
                             .navigationBarsPadding()
                             .padding(
-                                start = 20.dp,
-                                end = 20.dp,
+                                start = 18.dp,
+                                end = 18.dp,
                                 bottom = if (preferences.pixelChargingWaveEnabled && (isCharging || previewChargingOverlay)) 32.dp else 14.dp
                             ),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (showSamsungMediaPill) {
-                            SamsungBottomMediaPill(
+                        if (showStandaloneMediaPlayer) {
+                            ResizableLockMediaPlayer(
                                 mediaState = samsungPillMedia,
+                                sizeTier = localMediaTier,
                                 accentColor = secondaryColor,
+                                uiStyle = uiStyle,
+                                onCycleSizeTier = {
+                                    haptics.performTick(16L)
+                                    val tiers = MediaPlayerSizeTier.entries
+                                    val next = tiers[(localMediaTier.ordinal + 1) % tiers.size]
+                                    localMediaTier = next
+                                    onCycleMediaSizeTier?.invoke(next)
+                                },
+                                onPreviousTrack = {
+                                    haptics.performTick(16L)
+                                    samsungPillMedia.controller?.transportControls?.skipToPrevious()
+                                    val refreshed = StudioWidgetSystemBridge.readActiveMediaState(context)
+                                    if (refreshed.hasSession) samsungPillMedia = refreshed
+                                },
                                 onTogglePlayPause = {
                                     haptics.performTick(18L)
                                     val tc = samsungPillMedia.controller?.transportControls
@@ -752,25 +936,12 @@ fun SharedLockScreenRenderer(
                             )
                         }
 
-                        if (showUnlockBar) {
-                            Surface(
-                                shape = RoundedCornerShape(50),
-                                color = Color.Black.copy(alpha = 0.42f)
-                            ) {
-                                Text(
-                                    text = "Swipe up or tap unlock",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.88f),
-                                    modifier = Modifier
-                                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                                        .testTag("lockscreen_unlock_hint")
-                                )
-                            }
-
+                        if (showUnlockBar && (showGlancePill || !hasCornerShortcuts)) {
                             ThemedUnlockButton(
                                 themeConfig = unlockTheme,
                                 dynamicAccent = secondaryColor,
                                 isGlassMode = isGlass,
+                                isGlyphMode = isGlyph,
                                 label = when {
                                     isPreviewMode -> "Exit Preview"
                                     preferences.hasLockCredential -> "Unlock with ${preferences.parsedLockCredentialType.label}"
@@ -778,6 +949,89 @@ fun SharedLockScreenRenderer(
                                 },
                                 onClick = onUnlockClick
                             )
+                        }
+
+                        if (showGlancePill || hasCornerShortcuts) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (leftShortcut.action != LockShortcutAction.NONE) {
+                                    LockCornerShortcutButton(
+                                        config = leftShortcut,
+                                        isTorchOn = torchActive && leftShortcut.action == LockShortcutAction.FLASHLIGHT,
+                                        isGlyph = isGlyph,
+                                        onClick = { dispatchShortcut(leftShortcut) },
+                                        testTagName = "lockscreen_shortcut_left"
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.size(48.dp))
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(horizontal = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    when {
+                                        showGlancePill -> {
+                                            BackdropGlancePill(
+                                                mediaState = samsungPillMedia,
+                                                telemetry = telemetry,
+                                                isCharging = isCharging,
+                                                accentColor = secondaryColor,
+                                                uiStyle = uiStyle,
+                                                onTogglePlayPause = {
+                                                    haptics.performTick(18L)
+                                                    val tc = samsungPillMedia.controller?.transportControls
+                                                    if (samsungPillMedia.isPlaying) tc?.pause() else tc?.play()
+                                                    val refreshed = StudioWidgetSystemBridge.readActiveMediaState(context)
+                                                    samsungPillMedia = if (refreshed.hasSession) refreshed
+                                                    else samsungPillMedia.copy(isPlaying = !samsungPillMedia.isPlaying)
+                                                },
+                                                onNextTrack = {
+                                                    haptics.performTick(16L)
+                                                    samsungPillMedia.controller?.transportControls?.skipToNext()
+                                                    val refreshed = StudioWidgetSystemBridge.readActiveMediaState(context)
+                                                    if (refreshed.hasSession) samsungPillMedia = refreshed
+                                                },
+                                                onOpenExpandedMedia = {
+                                                    haptics.performTick(18L)
+                                                    expandedMediaState = samsungPillMedia
+                                                }
+                                            )
+                                        }
+                                        showUnlockBar -> {
+                                            ThemedUnlockButton(
+                                                themeConfig = unlockTheme,
+                                                dynamicAccent = secondaryColor,
+                                                isGlassMode = isGlass,
+                                                isGlyphMode = isGlyph,
+                                                label = when {
+                                                    isPreviewMode -> "Exit Preview"
+                                                    preferences.hasLockCredential -> "Unlock"
+                                                    else -> "Unlock"
+                                                },
+                                                onClick = onUnlockClick
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (rightShortcut.action != LockShortcutAction.NONE) {
+                                    LockCornerShortcutButton(
+                                        config = rightShortcut,
+                                        isTorchOn = torchActive && rightShortcut.action == LockShortcutAction.FLASHLIGHT,
+                                        isGlyph = isGlyph,
+                                        onClick = { dispatchShortcut(rightShortcut) },
+                                        testTagName = "lockscreen_shortcut_right"
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.size(48.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -926,7 +1180,7 @@ fun SharedLockScreenRenderer(
                         ) { page ->
                             if (page == boardPageIdx) {
                                 SecondaryWidgetsBoardPage(
-                                    widgets = studioWidgets,
+                                    widgets = widgetPageWidgets,
                                     maxWidgets = maxPageWidgets,
                                     telemetry = telemetry,
                                     isCharging = isCharging,
@@ -1062,100 +1316,500 @@ private fun SecondaryWidgetsBoardPage(
 }
 
 @Composable
-private fun SamsungBottomMediaPill(
+private fun LockCornerShortcutButton(
+    config: LockShortcutConfig,
+    isTorchOn: Boolean,
+    isGlyph: Boolean,
+    onClick: () -> Unit,
+    testTagName: String
+) {
+    val icon = shortcutIconForAction(config.action, isTorchOn)
+    val bgColor = when {
+        isTorchOn && isGlyph -> GlyphRedDot
+        isTorchOn -> Color.White
+        isGlyph -> Color(0xFF141414).copy(alpha = 0.92f)
+        else -> Color(0xFF141824).copy(alpha = 0.72f)
+    }
+    val fgColor = when {
+        isTorchOn && !isGlyph -> Color(0xFF10131C)
+        else -> Color.White
+    }
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = bgColor,
+        border = BorderStroke(1.dp, if (isTorchOn) Color.White.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.24f)),
+        modifier = Modifier
+            .size(48.dp)
+            .testTag(testTagName)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = config.displayLabel,
+                tint = fgColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+internal fun shortcutIconForAction(action: LockShortcutAction, isTorchOn: Boolean = false): ImageVector = when (action) {
+    LockShortcutAction.FLASHLIGHT -> if (isTorchOn) Icons.Rounded.FlashlightOn else Icons.Rounded.FlashlightOff
+    LockShortcutAction.CAMERA -> Icons.Rounded.CameraAlt
+    LockShortcutAction.ALARM -> Icons.Rounded.Alarm
+    LockShortcutAction.TIMER -> Icons.Rounded.HourglassBottom
+    LockShortcutAction.STOPWATCH -> Icons.Rounded.Timer
+    LockShortcutAction.CALCULATOR -> Icons.Rounded.Calculate
+    LockShortcutAction.QR_SCANNER -> Icons.Rounded.QrCodeScanner
+    LockShortcutAction.SETTINGS -> Icons.Rounded.Settings
+    LockShortcutAction.OPEN_APP -> Icons.Rounded.Apps
+    LockShortcutAction.NONE -> Icons.Rounded.Apps
+}
+
+@Composable
+private fun BackdropGlancePill(
     mediaState: ActiveMediaPlaybackState,
+    telemetry: ClockWidgetTelemetry,
+    isCharging: Boolean,
     accentColor: Color,
+    uiStyle: UiStyleMode,
+    onTogglePlayPause: () -> Unit,
+    onNextTrack: () -> Unit,
+    onOpenExpandedMedia: () -> Unit
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val reducedMotion = LocalReducedMotionFlag.current
+    val haptics = rememberStudioHaptics()
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+
+    val cards = remember { GlanceCardType.entries }
+    var cardIndex by remember { mutableIntStateOf(0) }
+    var flipAccumulatedDeg by remember { mutableFloatStateOf(0f) }
+    var dragAccumX by remember { mutableFloatStateOf(0f) }
+
+    val activeCard = cards[cardIndex % cards.size]
+    val animatedRotationY by animateFloatAsState(
+        targetValue = flipAccumulatedDeg,
+        animationSpec = if (reducedMotion) tween(0) else tween(durationMillis = if (isGlyph) 240 else 360),
+        label = "glance_pill_3d_flip"
+    )
+
+    fun stepCard(delta: Int) {
+        haptics.performTick(16L)
+        cardIndex = ((cardIndex + delta) % cards.size + cards.size) % cards.size
+        flipAccumulatedDeg += if (delta >= 0) 180f else -180f
+    }
+
+    val calendarEvent = remember(activeCard) {
+        if (activeCard == GlanceCardType.CALENDAR_NEXT && StudioWidgetSystemBridge.hasCalendarPermission(context)) {
+            StudioWidgetSystemBridge.loadUpcomingCalendarEvents(context, limit = 1).firstOrNull()
+        } else null
+    }
+
+    val pillBg = if (isGlyph) Color(0xFF141414).copy(alpha = 0.94f) else Color(0xFF141824).copy(alpha = 0.84f)
+    val pillBorder = if (isGlyph) Color.White.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.26f)
+    val dotAccent = if (isGlyph) GlyphRedDot else accentColor
+
+    Surface(
+        onClick = {
+            if (activeCard == GlanceCardType.NOW_PLAYING) onOpenExpandedMedia()
+            else stepCard(1)
+        },
+        shape = RoundedCornerShape(50),
+        color = pillBg,
+        border = BorderStroke(1.dp, pillBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .graphicsLayer {
+                if (!reducedMotion) {
+                    val normalizedAngle = ((animatedRotationY % 180f) + 180f) % 180f
+                    val displayAngle = if (normalizedAngle > 90f) normalizedAngle - 180f else normalizedAngle
+                    rotationY = displayAngle
+                    cameraDistance = 14f * density.density
+                }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { dragAccumX = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        dragAccumX += dragAmount
+                    },
+                    onDragEnd = {
+                        if (dragAccumX > 36f) stepCard(-1)
+                        else if (dragAccumX < -36f) stepCard(1)
+                        dragAccumX = 0f
+                    }
+                )
+            }
+            .testTag("backdrop_glance_pill")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(
+                onClick = { stepCard(-1) },
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("glance_pill_prev_card")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronLeft,
+                    contentDescription = "Previous Glance card",
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            AnimatedContent(
+                targetState = activeCard,
+                transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(120)) },
+                modifier = Modifier.weight(1f),
+                label = "glance_card_content"
+            ) { card ->
+                when (card) {
+                    GlanceCardType.NOW_PLAYING -> {
+                        val validArt = mediaState.albumArt?.takeIf { !it.isRecycled && it.width > 0 && it.height > 0 }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (validArt != null) {
+                                val bmp = remember(validArt) { validArt.asImageBitmap() }
+                                Image(
+                                    bitmap = bmp,
+                                    contentDescription = mediaState.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(30.dp).clip(CircleShape)
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(CircleShape)
+                                        .background(dotAccent.copy(alpha = 0.28f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = mediaState.title,
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.labelMedium.fontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = mediaState.artist,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.68f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = onTogglePlayPause,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .testTag("glance_pill_play_pause")
+                            ) {
+                                Icon(
+                                    imageVector = if (mediaState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    contentDescription = if (mediaState.isPlaying) "Pause" else "Play",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            IconButton(
+                                onClick = onNextTrack,
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .testTag("glance_pill_next_track")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SkipNext,
+                                    contentDescription = "Next track",
+                                    tint = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    GlanceCardType.WEATHER_BRIEF -> {
+                        val todayStr = remember {
+                            SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date())
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Rounded.WbSunny, contentDescription = null, tint = if (isGlyph) GlyphRedDot else Color(0xFFFFCA62), modifier = Modifier.size(18.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = telemetry.weatherText,
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.labelMedium.fontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "$todayStr • Glance Brief",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.68f),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    GlanceCardType.CALENDAR_NEXT -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = dotAccent, modifier = Modifier.size(18.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = calendarEvent?.title ?: "Clear Schedule",
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.labelMedium.fontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = calendarEvent?.timeLabel ?: "No upcoming events",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.68f),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+
+                    GlanceCardType.BATTERY_BRIEF -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, tint = if (isGlyph) GlyphRedDot else Color(0xFF5CF28E), modifier = Modifier.size(18.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${telemetry.batteryPercent.coerceIn(0, 100)}% ${if (isCharging) "• Charging" else "• Ready"}",
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "Swipe pill to flip card",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            IconButton(
+                onClick = { stepCard(1) },
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("glance_pill_next_card")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = "Next Glance card",
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResizableLockMediaPlayer(
+    mediaState: ActiveMediaPlaybackState,
+    sizeTier: MediaPlayerSizeTier,
+    accentColor: Color,
+    uiStyle: UiStyleMode,
+    onCycleSizeTier: () -> Unit,
+    onPreviousTrack: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onNextTrack: () -> Unit,
     onOpenExpanded: () -> Unit
 ) {
     val validArt = mediaState.albumArt?.takeIf { !it.isRecycled && it.width > 0 && it.height > 0 }
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+    val pillShape = if (sizeTier == MediaPlayerSizeTier.EXPANDED_MINI) RoundedCornerShape(22.dp) else RoundedCornerShape(50)
+    val animatedHeight by animateDpAsState(targetValue = sizeTier.heightDp.dp, label = "media_tier_h")
+    val progress = if (mediaState.durationMs > 0L) {
+        (mediaState.positionMs.toFloat() / mediaState.durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
     Surface(
         onClick = onOpenExpanded,
-        shape = RoundedCornerShape(50),
-        color = Color(0xFF141824).copy(alpha = 0.80f),
+        shape = pillShape,
+        color = if (isGlyph) Color(0xFF141414).copy(alpha = 0.94f) else Color(0xFF141824).copy(alpha = 0.82f),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)),
         modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
+            .fillMaxWidth(sizeTier.widthScale)
+            .height(animatedHeight)
             .testTag("samsung_bottom_media_pill")
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 10.dp, vertical = if (sizeTier == MediaPlayerSizeTier.EXPANDED_MINI) 8.dp else 4.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-            if (validArt != null) {
-                val bmp = remember(validArt) { validArt.asImageBitmap() }
-                Image(
-                    bitmap = bmp,
-                    contentDescription = mediaState.title,
-                    contentScale = ContentScale.Crop,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (validArt != null) {
+                    val bmp = remember(validArt) { validArt.asImageBitmap() }
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = mediaState.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(if (sizeTier == MediaPlayerSizeTier.EXPANDED_MINI) 40.dp else 34.dp)
+                            .clip(if (isGlyph) RoundedCornerShape(8.dp) else CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(if (sizeTier == MediaPlayerSizeTier.EXPANDED_MINI) 40.dp else 34.dp)
+                            .clip(if (isGlyph) RoundedCornerShape(8.dp) else CircleShape)
+                            .background((if (isGlyph) GlyphRedDot else accentColor).copy(alpha = 0.28f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = mediaState.title,
+                        fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.labelLarge.fontFamily,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = mediaState.artist,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.72f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (sizeTier != MediaPlayerSizeTier.COMPACT) {
+                    IconButton(
+                        onClick = onPreviousTrack,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipPrevious,
+                            contentDescription = "Previous track",
+                            tint = Color.White.copy(alpha = 0.88f),
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onTogglePlayPause,
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(CircleShape)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(accentColor.copy(alpha = 0.28f)),
-                    contentAlignment = Alignment.Center
+                        .testTag("samsung_media_pill_play_pause")
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
+                        imageVector = if (mediaState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (mediaState.isPlaying) "Pause" else "Play",
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onNextTrack,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("samsung_media_pill_next")
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.SkipNext,
+                        contentDescription = "Next track",
+                        tint = Color.White.copy(alpha = 0.88f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onCycleSizeTier,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .testTag("media_player_cycle_size_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AspectRatio,
+                        contentDescription = "Resize media player (${sizeTier.label})",
+                        tint = Color.White.copy(alpha = 0.76f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = mediaState.title,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = mediaState.artist,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.72f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            IconButton(
-                onClick = onTogglePlayPause,
-                modifier = Modifier
-                    .size(38.dp)
-                    .testTag("samsung_media_pill_play_pause")
-            ) {
-                Icon(
-                    imageVector = if (mediaState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (mediaState.isPlaying) "Pause" else "Play",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            IconButton(
-                onClick = onNextTrack,
-                modifier = Modifier
-                    .size(38.dp)
-                    .testTag("samsung_media_pill_next")
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.SkipNext,
-                    contentDescription = "Next track",
-                    tint = Color.White.copy(alpha = 0.88f),
-                    modifier = Modifier.size(20.dp)
+            if (sizeTier == MediaPlayerSizeTier.EXPANDED_MINI) {
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(50)),
+                    color = if (isGlyph) GlyphRedDot else Color.White,
+                    trackColor = Color.White.copy(alpha = 0.22f)
                 )
             }
         }
@@ -1536,25 +2190,33 @@ fun ThemedUnlockButton(
     isGlassMode: Boolean,
     label: String,
     onClick: () -> Unit,
+    isGlyphMode: Boolean = LocalUiStyleMode.current == UiStyleMode.GLYPH_UI,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = when (themeConfig.style) {
-        UnlockButtonStyle.DYNAMIC_ACCENT -> dynamicAccent.copy(alpha = themeConfig.transparency)
-        UnlockButtonStyle.SOLID -> Color.White.copy(alpha = themeConfig.transparency.coerceAtLeast(0.85f))
-        UnlockButtonStyle.FROSTED -> Color(0xFF141824).copy(alpha = (themeConfig.transparency * 0.68f).coerceIn(0.32f, 0.85f))
-        UnlockButtonStyle.TRANSPARENT -> Color.Black.copy(alpha = 0.24f)
-        UnlockButtonStyle.M3_TONAL -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = themeConfig.transparency)
-        UnlockButtonStyle.CUSTOM -> Color(themeConfig.customContainerArgb.toInt()).copy(alpha = themeConfig.transparency)
+    val containerColor = when {
+        isGlyphMode && themeConfig.style != UnlockButtonStyle.CUSTOM -> Color(0xFF141414).copy(alpha = 0.92f)
+        else -> when (themeConfig.style) {
+            UnlockButtonStyle.DYNAMIC_ACCENT -> dynamicAccent.copy(alpha = themeConfig.transparency)
+            UnlockButtonStyle.SOLID -> Color.White.copy(alpha = themeConfig.transparency.coerceAtLeast(0.85f))
+            UnlockButtonStyle.FROSTED -> Color(0xFF141824).copy(alpha = (themeConfig.transparency * 0.68f).coerceIn(0.32f, 0.85f))
+            UnlockButtonStyle.TRANSPARENT -> Color.Black.copy(alpha = 0.24f)
+            UnlockButtonStyle.M3_TONAL -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = themeConfig.transparency)
+            UnlockButtonStyle.CUSTOM -> Color(themeConfig.customContainerArgb.toInt()).copy(alpha = themeConfig.transparency)
+        }
     }
-    val contentColor = when (themeConfig.style) {
-        UnlockButtonStyle.DYNAMIC_ACCENT -> Color.White
-        UnlockButtonStyle.SOLID -> Color(0xFF10131C)
-        UnlockButtonStyle.FROSTED,
-        UnlockButtonStyle.TRANSPARENT -> Color.White
-        UnlockButtonStyle.M3_TONAL -> MaterialTheme.colorScheme.onSecondaryContainer
-        UnlockButtonStyle.CUSTOM -> Color(themeConfig.customContentArgb.toInt())
+    val contentColor = when {
+        isGlyphMode && themeConfig.style != UnlockButtonStyle.CUSTOM -> Color.White
+        else -> when (themeConfig.style) {
+            UnlockButtonStyle.DYNAMIC_ACCENT -> Color.White
+            UnlockButtonStyle.SOLID -> Color(0xFF10131C)
+            UnlockButtonStyle.FROSTED,
+            UnlockButtonStyle.TRANSPARENT -> Color.White
+            UnlockButtonStyle.M3_TONAL -> MaterialTheme.colorScheme.onSecondaryContainer
+            UnlockButtonStyle.CUSTOM -> Color(themeConfig.customContentArgb.toInt())
+        }
     }
     val border = when {
+        isGlyphMode -> BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
         themeConfig.style == UnlockButtonStyle.FROSTED || (isGlassMode && themeConfig.style != UnlockButtonStyle.SOLID) ->
             BorderStroke(1.dp, Color.White.copy(alpha = 0.44f))
         themeConfig.style == UnlockButtonStyle.TRANSPARENT ->
@@ -1576,7 +2238,7 @@ fun ThemedUnlockButton(
     ) {
         Icon(Icons.Rounded.LockOpen, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = label, fontWeight = FontWeight.SemiBold)
+        Text(text = label, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -1587,9 +2249,15 @@ fun LockScreenChargingAnimationOverlay(
     dynamicAccent: Color,
     modifier: Modifier = Modifier
 ) {
-    val accent = if (config.dynamicAccentColor) dynamicAccent else Color(config.customAccentArgb.toInt())
+    val uiStyle = LocalUiStyleMode.current
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+    val accent = when {
+        !config.dynamicAccentColor -> Color(config.customAccentArgb.toInt())
+        isGlyph -> GlyphRedDot
+        else -> dynamicAccent
+    }
     val safePct = batteryPercent.coerceIn(0, 100)
-    val durationMs = (1800f / config.speedMultiplier.coerceIn(0.5f, 2f)).roundToInt().coerceIn(700, 4200)
+    val durationMs = (1900f / config.speedMultiplier.coerceIn(0.5f, 2f)).roundToInt().coerceIn(700, 4200)
     val transition = rememberInfiniteTransition(label = "lockscreen_charging")
     val phase by transition.animateFloat(
         initialValue = 0f,
@@ -1597,229 +2265,120 @@ fun LockScreenChargingAnimationOverlay(
         animationSpec = infiniteRepeatable(tween(durationMs, easing = LinearEasing), RepeatMode.Restart),
         label = "charging_phase"
     )
-    val pulseScale = 0.94f + 0.08f * sin(phase * 2.0 * PI).toFloat()
-    val sizeDp = (118f * config.sizeScale.coerceIn(0.65f, 1.5f)).dp
+    val breathScale = 0.96f + 0.05f * sin(phase * 2.0 * PI).toFloat()
+    val scale = config.sizeScale.coerceIn(0.65f, 1.5f)
+    val circleSizeDp = (116f * scale).dp
 
     when (config.preset) {
         ChargingAnimationPreset.OFF -> Unit
 
-        ChargingAnimationPreset.MINIMAL_BEAM -> {
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = Color(0xFF0E131E).copy(alpha = 0.80f),
-                border = BorderStroke(1.2.dp, accent.copy(alpha = 0.75f)),
-                shadowElevation = 6.dp,
-                modifier = modifier.testTag("lockscreen_charging_overlay")
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        val sweepX = (phase * 1.4f - 0.2f) * size.width
-                        drawRect(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(Color.Transparent, accent.copy(alpha = 0.34f), Color.Transparent),
-                                startX = sweepX - size.width * 0.25f,
-                                endX = sweepX + size.width * 0.25f
-                            )
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.BatteryChargingFull,
-                            contentDescription = "Charging",
-                            tint = accent,
-                            modifier = Modifier.size(18.dp).graphicsLayer { scaleX = pulseScale; scaleY = pulseScale }
-                        )
-                        if (config.showPercentage) {
-                            Text("$safePct%", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                        if (config.showStatusText) {
-                            Text("Fast Charging", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.88f))
-                        }
-                    }
-                }
-            }
-        }
-
-        else -> {
+        // 1. Minimal Energy Halo: subtle breathing luminous ring matched to battery %
+        ChargingAnimationPreset.MINIMAL_ENERGY_HALO -> {
             Box(
                 modifier = modifier
-                    .size(sizeDp)
+                    .size(circleSizeDp)
                     .testTag("lockscreen_charging_overlay"),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val c = Offset(size.width * 0.5f, size.height * 0.5f)
-                    val radius = size.minDimension * 0.40f
-                    when (config.preset) {
-                        ChargingAnimationPreset.PULSE_RING -> {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(accent.copy(alpha = 0.28f), Color(0xFF0A0D16).copy(alpha = 0.72f)),
-                                    center = c,
-                                    radius = radius
-                                ),
-                                radius = radius,
-                                center = c
-                            )
-                            for (ring in 0..1) {
-                                val rp = (phase + ring * 0.5f) % 1f
-                                drawCircle(
-                                    color = accent.copy(alpha = (0.48f * (1f - rp)).coerceIn(0.04f, 0.52f)),
-                                    radius = radius * (0.86f + rp * 0.34f),
-                                    center = c,
-                                    style = Stroke(width = (3.0f * (1f - rp * 0.4f)).dp.toPx())
-                                )
-                            }
-                            drawCircle(
-                                color = Color.White.copy(alpha = 0.14f),
-                                radius = radius,
-                                center = c,
-                                style = Stroke(width = 5.5.dp.toPx())
-                            )
-                            drawArc(
-                                brush = Brush.sweepGradient(listOf(accent.copy(alpha = 0.65f), Color.White, accent)),
-                                startAngle = -90f,
-                                sweepAngle = (safePct / 100f) * 360f,
-                                useCenter = false,
-                                topLeft = Offset(c.x - radius, c.y - radius),
-                                size = Size(radius * 2f, radius * 2f),
-                                style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                            )
-                        }
-                        ChargingAnimationPreset.LIQUID_WAVE -> {
-                            drawCircle(color = Color(0xFF0B101B).copy(alpha = 0.74f), radius = radius, center = c)
-                            val fillTop = c.y + radius - (safePct / 100f) * (radius * 2f)
-                            val wavePath = Path().apply {
-                                val startX = c.x - radius
-                                val endX = c.x + radius
-                                moveTo(startX, c.y + radius)
-                                lineTo(startX, fillTop)
-                                val steps = 20
-                                for (i in 0..steps) {
-                                    val t = i / steps.toFloat()
-                                    val x = startX + (endX - startX) * t
-                                    val wave = sin(t * 2f * PI + phase * 2f * PI).toFloat() * 4.5.dp.toPx()
-                                    lineTo(x, fillTop + wave)
-                                }
-                                lineTo(endX, c.y + radius)
-                                close()
-                            }
-                            val backWavePath = Path().apply {
-                                val startX = c.x - radius
-                                val endX = c.x + radius
-                                moveTo(startX, c.y + radius)
-                                lineTo(startX, fillTop)
-                                val steps = 20
-                                for (i in 0..steps) {
-                                    val t = i / steps.toFloat()
-                                    val x = startX + (endX - startX) * t
-                                    val wave = sin(t * 2.5f * PI - phase * 2f * PI).toFloat() * 3.5.dp.toPx()
-                                    lineTo(x, fillTop + wave)
-                                }
-                                lineTo(endX, c.y + radius)
-                                close()
-                            }
-                            drawPath(path = backWavePath, color = accent.copy(alpha = 0.28f))
-                            drawPath(path = wavePath, color = accent.copy(alpha = 0.56f))
-                            drawCircle(
-                                color = accent.copy(alpha = 0.85f),
-                                radius = radius,
-                                center = c,
-                                style = Stroke(width = 2.8.dp.toPx())
-                            )
-                        }
-                        ChargingAnimationPreset.ORB_HALO -> {
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(accent.copy(alpha = 0.34f), Color(0xFF0A0D16).copy(alpha = 0.65f)),
-                                    center = c,
-                                    radius = radius * 1.1f
-                                ),
-                                radius = radius,
-                                center = c
-                            )
-                            drawArc(
-                                color = accent,
-                                startAngle = phase * 360f,
-                                sweepAngle = 150f,
-                                useCenter = false,
-                                topLeft = Offset(c.x - radius, c.y - radius),
-                                size = Size(radius * 2f, radius * 2f),
-                                style = Stroke(width = 5.5.dp.toPx(), cap = StrokeCap.Round)
-                            )
-                            drawArc(
-                                color = Color.White.copy(alpha = 0.78f),
-                                startAngle = phase * 360f + 180f,
-                                sweepAngle = 120f,
-                                useCenter = false,
-                                topLeft = Offset(c.x - radius * 0.82f, c.y - radius * 0.82f),
-                                size = Size(radius * 1.64f, radius * 1.64f),
-                                style = Stroke(width = 3.2.dp.toPx(), cap = StrokeCap.Round)
-                            )
-                            val orbAngle = phase * 2f * PI
-                            val orbPos = Offset(
-                                c.x + (cos(orbAngle) * radius).toFloat(),
-                                c.y + (sin(orbAngle) * radius).toFloat()
-                            )
-                            drawCircle(color = Color.White, radius = 4.2.dp.toPx(), center = orbPos)
-                        }
-                        ChargingAnimationPreset.ENERGY_CORE -> {
-                            // Outer reactor aura + multi-segment counter-rotating rings + pulsing core
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(Color.White.copy(alpha = 0.38f), accent.copy(alpha = 0.42f), Color.Transparent),
-                                    center = c,
-                                    radius = radius * 1.24f
-                                ),
-                                radius = radius * 1.24f,
-                                center = c
-                            )
-                            drawCircle(color = Color(0xFF090D16).copy(alpha = 0.74f), radius = radius * 0.86f, center = c)
-                            for (seg in 0..3) {
-                                val startA = phase * 360f + seg * 90f
-                                drawArc(
-                                    color = if (seg % 2 == 0) accent else Color.White.copy(alpha = 0.85f),
-                                    startAngle = startA,
-                                    sweepAngle = 56f,
-                                    useCenter = false,
-                                    topLeft = Offset(c.x - radius, c.y - radius),
-                                    size = Size(radius * 2f, radius * 2f),
-                                    style = Stroke(width = 4.8.dp.toPx(), cap = StrokeCap.Round)
-                                )
-                            }
-                            for (seg in 0..2) {
-                                val innerR = radius * 0.76f
-                                drawArc(
-                                    color = accent.copy(alpha = 0.82f),
-                                    startAngle = -phase * 360f + seg * 120f,
-                                    sweepAngle = 74f,
-                                    useCenter = false,
-                                    topLeft = Offset(c.x - innerR, c.y - innerR),
-                                    size = Size(innerR * 2f, innerR * 2f),
-                                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-                                )
-                            }
-                        }
-                        ChargingAnimationPreset.OFF,
-                        ChargingAnimationPreset.MINIMAL_BEAM -> Unit
-                    }
+                    val r = size.minDimension * 0.40f * breathScale
+                    drawCircle(
+                        color = Color(0xFF0C1018).copy(alpha = 0.72f),
+                        radius = r,
+                        center = c
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.16f),
+                        radius = r,
+                        center = c,
+                        style = Stroke(width = 3.5.dp.toPx())
+                    )
+                    drawArc(
+                        brush = Brush.sweepGradient(listOf(accent.copy(alpha = 0.45f), Color.White, accent)),
+                        startAngle = -90f,
+                        sweepAngle = (safePct / 100f) * 360f,
+                        useCenter = false,
+                        topLeft = Offset(c.x - r, c.y - r),
+                        size = Size(r * 2f, r * 2f),
+                        style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         imageVector = Icons.Rounded.BatteryChargingFull,
                         contentDescription = "Charging",
                         tint = accent,
-                        modifier = Modifier.size((18f * config.sizeScale).dp)
+                        modifier = Modifier.size((17f * scale).dp)
                     )
                     if (config.showPercentage) {
                         Text(
                             text = "$safePct%",
-                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
                             fontWeight = FontWeight.Bold,
+                            fontSize = (15f * scale).sp,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Liquid Energy Flow: sleek capsule reservoir with dual-layer fluid charge wave
+        ChargingAnimationPreset.LIQUID_ENERGY_FLOW -> {
+            val capsuleW = (176f * scale).dp
+            val capsuleH = (58f * scale).dp
+            Box(
+                modifier = modifier
+                    .size(width = capsuleW, height = capsuleH)
+                    .clip(RoundedCornerShape(50))
+                    .testTag("lockscreen_charging_overlay"),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawRoundRect(
+                        color = Color(0xFF0C1018).copy(alpha = 0.82f),
+                        cornerRadius = CornerRadius(size.height * 0.5f, size.height * 0.5f)
+                    )
+                    val fillRight = size.width * (safePct / 100f).coerceAtLeast(0.10f)
+                    val frontWave = Path().apply {
+                        moveTo(0f, size.height)
+                        lineTo(0f, 0f)
+                        lineTo(fillRight, 0f)
+                        val steps = 14
+                        for (i in 0..steps) {
+                            val t = i / steps.toFloat()
+                            val y = size.height * t
+                            val xOff = sin(t * 2.0 * PI + phase * 2.0 * PI).toFloat() * 4.dp.toPx()
+                            lineTo((fillRight + xOff).coerceIn(0f, size.width), y)
+                        }
+                        lineTo(0f, size.height)
+                        close()
+                    }
+                    drawPath(frontWave, color = accent.copy(alpha = 0.36f))
+                    drawRoundRect(
+                        color = accent.copy(alpha = 0.72f),
+                        cornerRadius = CornerRadius(size.height * 0.5f, size.height * 0.5f),
+                        style = Stroke(width = 1.4.dp.toPx())
+                    )
+                }
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.BatteryChargingFull,
+                        contentDescription = "Charging",
+                        tint = accent,
+                        modifier = Modifier.size((18f * scale).dp)
+                    )
+                    if (config.showPercentage) {
+                        Text(
+                            text = "$safePct%",
+                            fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (15f * scale).sp,
                             color = Color.White
                         )
                     }
@@ -1827,7 +2386,165 @@ fun LockScreenChargingAnimationOverlay(
                         Text(
                             text = "Charging",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.78f)
+                            color = Color.White.copy(alpha = 0.84f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Vertical Light Pulse: slim vertical beam rising cleanly from the charging port
+        ChargingAnimationPreset.VERTICAL_LIGHT_PULSE -> {
+            Box(
+                modifier = modifier
+                    .size(width = (154f * scale).dp, height = (72f * scale).dp)
+                    .testTag("lockscreen_charging_overlay"),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val beamX = size.width * 0.5f
+                    val travelY = size.height * (1f - phase)
+                    drawLine(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, accent.copy(alpha = 0.85f), Color.White)
+                        ),
+                        start = Offset(beamX, (travelY - 22.dp.toPx()).coerceAtLeast(0f)),
+                        end = Offset(beamX, size.height),
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawRoundRect(
+                        color = Color(0xFF0E131D).copy(alpha = 0.76f),
+                        topLeft = Offset(0f, size.height * 0.20f),
+                        size = Size(size.width, size.height * 0.60f),
+                        cornerRadius = CornerRadius(size.height * 0.3f, size.height * 0.3f)
+                    )
+                    drawRoundRect(
+                        color = accent.copy(alpha = 0.65f),
+                        topLeft = Offset(0f, size.height * 0.20f),
+                        size = Size(size.width, size.height * 0.60f),
+                        cornerRadius = CornerRadius(size.height * 0.3f, size.height * 0.3f),
+                        style = Stroke(width = 1.1.dp.toPx())
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Rounded.BatteryChargingFull, contentDescription = "Charging", tint = accent, modifier = Modifier.size(16.dp))
+                    if (config.showPercentage) {
+                        Text(
+                            text = "$safePct%",
+                            fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    if (config.showStatusText) {
+                        Text("Pulse", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.82f))
+                    }
+                }
+            }
+        }
+
+        // 4. Precision Battery Meter: 10-segment technical gauge with tabular % readout
+        ChargingAnimationPreset.PRECISION_BATTERY_METER -> {
+            val activeSegs = ((safePct / 10f).roundToInt()).coerceIn(1, 10)
+            val pulseSeg = ((phase * activeSegs).toInt()).coerceIn(0, activeSegs - 1)
+            Surface(
+                shape = RoundedCornerShape(if (isGlyph) 14.dp else 20.dp),
+                color = Color(0xFF10131A).copy(alpha = 0.88f),
+                border = BorderStroke(1.dp, if (isGlyph) Color.White.copy(alpha = 0.24f) else accent.copy(alpha = 0.62f)),
+                modifier = modifier.testTag("lockscreen_charging_overlay")
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Rounded.BatteryChargingFull, contentDescription = "Charging", tint = accent, modifier = Modifier.size(15.dp))
+                        if (config.showPercentage) {
+                            Text(
+                                text = "$safePct%",
+                                fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (15f * scale).sp,
+                                color = Color.White
+                            )
+                        }
+                        if (config.showStatusText) {
+                            Text(
+                                text = "POWER",
+                                fontFamily = JetBrainsMonoFontFamily,
+                                fontSize = 10.sp,
+                                color = Color.White.copy(alpha = 0.66f)
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        repeat(10) { idx ->
+                            val lit = idx < activeSegs
+                            val highlight = lit && idx == pulseSeg
+                            Box(
+                                modifier = Modifier
+                                    .size(width = (10f * scale).dp, height = (6f * scale).dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(
+                                        when {
+                                            highlight -> Color.White
+                                            lit -> accent
+                                            else -> Color.White.copy(alpha = 0.16f)
+                                        }
+                                    )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Soft Charging Ripple: concentric damped waves radiating smoothly from bottom port
+        ChargingAnimationPreset.SOFT_CHARGING_RIPPLE -> {
+            Box(
+                modifier = modifier
+                    .size(circleSizeDp)
+                    .testTag("lockscreen_charging_overlay"),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val c = Offset(size.width * 0.5f, size.height * 0.5f)
+                    val baseR = size.minDimension * 0.24f
+                    val maxR = size.minDimension * 0.48f
+                    drawCircle(
+                        color = Color(0xFF0C1018).copy(alpha = 0.72f),
+                        radius = baseR * 1.15f,
+                        center = c
+                    )
+                    for (ring in 0..2) {
+                        val rp = (phase + ring * 0.33f) % 1f
+                        val r = baseR + (maxR - baseR) * rp
+                        val a = ((1f - rp) * (1f - rp) * 0.72f).coerceIn(0f, 0.75f)
+                        drawCircle(
+                            color = accent.copy(alpha = a),
+                            radius = r,
+                            center = c,
+                            style = Stroke(width = (2.4f * (1f - rp * 0.4f)).dp.toPx())
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Rounded.BatteryChargingFull, contentDescription = "Charging", tint = accent, modifier = Modifier.size((16f * scale).dp))
+                    if (config.showPercentage) {
+                        Text(
+                            text = "$safePct%",
+                            fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (14f * scale).sp,
+                            color = Color.White
                         )
                     }
                 }

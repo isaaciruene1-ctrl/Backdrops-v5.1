@@ -8,36 +8,81 @@ import com.example.data.model.WallpaperCategory
 
 object WallpaperCatalog {
 
-    const val TARGET_CATALOG_SIZE = 3100
+    const val TARGET_CATALOG_SIZE = 100
+    const val CURATED_ONLINE_LIMIT = 100
 
-    // Ensure every wallpaper preserves a unique photographic URL without procedural generation or static fallbacks
+    private val priorityShowcaseIds = setOf(
+        "abs_01", "spc_07", "min_09", "pxl_05", "pxl_09", "dep_29"
+    )
+
+    // Ensure every wallpaper preserves a unique photographic URL without procedural generation or bloat
     val allWallpapers: List<Wallpaper> by lazy {
         val coreParts = buildCatalogPartOne() +
             buildCatalogPartTwo() +
             buildCatalogPartThree() +
-            buildCatalogPartFour() +
-            buildCatalogPartFive() +
-            buildCatalogPartSix() +
-            buildCatalogPartSeven() +
-            buildCatalogPartEight() +
-            buildCatalogPartNine() +
-            buildCatalogPartTen() +
-            buildCatalogPartTwelve() +
-            buildCatalogPartEleven()
+            buildCatalogPartFour()
 
-        val seenThumbUrls = HashSet<String>(4096)
-        val seenIds = HashSet<String>(4096)
+        val seenThumbUrls = HashSet<String>(256)
+        val seenIds = HashSet<String>(256)
         val uniqueCore = coreParts.filter { wp ->
             seenThumbUrls.add(wp.thumbnailUrl) && seenIds.add(wp.id)
         }
-        val remainingNeeded = (TARGET_CATALOG_SIZE - uniqueCore.size).coerceAtLeast(0)
-        val expansionTail = buildCatalogExpansion()
-            .asSequence()
-            .filter { wp -> seenThumbUrls.add(wp.thumbnailUrl) && seenIds.add(wp.id) }
-            .take(remainingNeeded)
-            .toList()
 
-        (uniqueCore + expansionTail).take(TARGET_CATALOG_SIZE)
+        val picked = ArrayList<Wallpaper>(TARGET_CATALOG_SIZE)
+        val pickedIds = HashSet<String>(TARGET_CATALOG_SIZE)
+
+        // 1. Seed priority reference & depth showcase entries first
+        uniqueCore.filter { it.id in priorityShowcaseIds }.forEach { wp ->
+            if (picked.size < TARGET_CATALOG_SIZE && pickedIds.add(wp.id)) {
+                picked += wp
+            }
+        }
+
+        // 2. Round-robin balanced sampling across every WallpaperCategory & DiscoveryCollection
+        val byCategory = WallpaperCategory.entries.associateWith { cat ->
+            uniqueCore.filter { it.category == cat && it.id !in pickedIds }
+                .sortedByDescending { (if (it.supportsDepthEffect) 100 else 0) + it.popularityScore }
+                .toMutableList()
+        }
+
+        var progressed = true
+        while (picked.size < TARGET_CATALOG_SIZE && progressed) {
+            progressed = false
+            for (cat in WallpaperCategory.entries) {
+                if (picked.size >= TARGET_CATALOG_SIZE) break
+                val bucket = byCategory[cat] ?: continue
+                if (bucket.isNotEmpty()) {
+                    val next = bucket.removeAt(0)
+                    if (pickedIds.add(next.id)) {
+                        picked += next
+                        progressed = true
+                    }
+                }
+            }
+        }
+
+        // 3. Ensure every DiscoveryCollection has representation if any collection still lacks an entry
+        for (col in DiscoveryCollection.entries) {
+            val hasCol = when (col) {
+                DiscoveryCollection.DEPTH_STUDIO -> picked.any { it.supportsDepthEffect }
+                DiscoveryCollection.AMOLED -> picked.any { it.category == WallpaperCategory.AMOLED || col in it.collections }
+                DiscoveryCollection.TRENDING, DiscoveryCollection.NEW_ARRIVALS -> true
+                else -> picked.any { col in it.collections || it.category.displayName.equals(col.title, ignoreCase = true) }
+            }
+            if (!hasCol) {
+                val candidate = uniqueCore.firstOrNull { col in it.collections && it.id !in pickedIds }
+                if (candidate != null && picked.isNotEmpty()) {
+                    val replaceIdx = picked.indexOfLast { it.id !in priorityShowcaseIds }
+                    if (replaceIdx >= 0) {
+                        pickedIds.remove(picked[replaceIdx].id)
+                        picked[replaceIdx] = candidate
+                        pickedIds.add(candidate.id)
+                    }
+                }
+            }
+        }
+
+        picked.take(TARGET_CATALOG_SIZE)
     }
 
     private val byId: Map<String, Wallpaper> by lazy {

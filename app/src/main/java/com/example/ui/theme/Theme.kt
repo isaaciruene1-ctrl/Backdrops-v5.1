@@ -145,7 +145,74 @@ private val PastelDarkColorScheme = darkColorScheme(
     error = DarkRoseError
 )
 
-fun buildBackdropShapes(cornerScale: Float = 1.0f): Shapes {
+val GlyphLightColorScheme = lightColorScheme(
+    primary = GlyphLightInk,
+    onPrimary = GlyphWhite,
+    primaryContainer = GlyphLightSurfaceHigh,
+    onPrimaryContainer = GlyphLightInk,
+    secondary = Color(0xFF2B2B2B),
+    onSecondary = GlyphWhite,
+    secondaryContainer = GlyphLightSurface,
+    onSecondaryContainer = GlyphLightInk,
+    tertiary = GlyphRedDot,
+    onTertiary = GlyphWhite,
+    tertiaryContainer = Color(0xFFFFE5E5),
+    onTertiaryContainer = Color(0xFF5A0A0A),
+    background = GlyphOffWhite,
+    onBackground = GlyphLightInk,
+    surface = GlyphOffWhite,
+    onSurface = GlyphLightInk,
+    surfaceVariant = GlyphLightSurface,
+    onSurfaceVariant = GlyphLightMutedInk,
+    surfaceContainerLowest = GlyphWhite,
+    surfaceContainerLow = GlyphLightSurfaceLow,
+    surfaceContainer = GlyphLightSurface,
+    surfaceContainerHigh = GlyphLightSurfaceHigh,
+    surfaceContainerHighest = GlyphLightSurfaceHighest,
+    outline = GlyphLightOutline,
+    outlineVariant = GlyphLightOutlineVariant,
+    error = GlyphRedDot
+)
+
+val GlyphDarkColorScheme = darkColorScheme(
+    primary = GlyphDarkInk,
+    onPrimary = GlyphPitchBlack,
+    primaryContainer = GlyphDarkSurfaceHighest,
+    onPrimaryContainer = GlyphDarkInk,
+    secondary = Color(0xFFD0D0D0),
+    onSecondary = GlyphPitchBlack,
+    secondaryContainer = GlyphDarkSurfaceHigh,
+    onSecondaryContainer = GlyphDarkInk,
+    tertiary = GlyphRedDot,
+    onTertiary = GlyphWhite,
+    tertiaryContainer = Color(0xFF3A1010),
+    onTertiaryContainer = Color(0xFFFFDADA),
+    background = GlyphPitchBlack,
+    onBackground = GlyphDarkInk,
+    surface = GlyphPitchBlack,
+    onSurface = GlyphDarkInk,
+    surfaceVariant = GlyphDarkSurfaceHigh,
+    onSurfaceVariant = GlyphDarkMutedInk,
+    surfaceContainerLowest = GlyphPitchBlack,
+    surfaceContainerLow = GlyphDarkSurfaceLow,
+    surfaceContainer = GlyphDarkSurface,
+    surfaceContainerHigh = GlyphDarkSurfaceHigh,
+    surfaceContainerHighest = GlyphDarkSurfaceHighest,
+    outline = GlyphDarkOutline,
+    outlineVariant = GlyphDarkOutlineVariant,
+    error = Color(0xFFFF5A5A)
+)
+
+fun buildBackdropShapes(cornerScale: Float = 1.0f, uiStyle: UiStyleMode = UiStyleMode.MATERIAL_3): Shapes {
+    if (uiStyle == UiStyleMode.GLYPH_UI) {
+        return Shapes(
+            extraSmall = RoundedCornerShape(8.dp),
+            small = RoundedCornerShape(12.dp),
+            medium = RoundedCornerShape(18.dp),
+            large = RoundedCornerShape(22.dp),
+            extraLarge = RoundedCornerShape(26.dp)
+        )
+    }
     val clamped = cornerScale.coerceIn(0.5f, 1.5f)
     val s = (1f + (clamped - 1f) * 1.45f).coerceIn(0.28f, 1.90f)
     return Shapes(
@@ -462,7 +529,8 @@ fun BackdropTheme(
         ThemeMode.DARK -> true
     }
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
-    val effectiveDynamic = useDynamicColor && customization.dynamicThemingEnabled
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+    val effectiveDynamic = !isGlyph && useDynamicColor && customization.dynamicThemingEnabled
 
     val context = LocalContext.current
     val resolvedTier = ZeroLagPerformanceEngine.resolveEffectiveLiquidGlassTier(
@@ -471,45 +539,54 @@ fun BackdropTheme(
     )
     val effectiveCustomization = customization.copy(liquidGlassTier = resolvedTier)
 
-    val rawScheme = when {
-        effectiveDynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme = if (isGlyph) {
+        if (isDark) GlyphDarkColorScheme else GlyphLightColorScheme
+    } else {
+        val rawScheme = when {
+            effectiveDynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            else -> {
+                buildSeededColorScheme(
+                    seedHex = customization.customAccentHex,
+                    isDark = isDark,
+                    surfaceDepth = customization.m3SurfaceDepth
+                )
+            }
         }
-        else -> {
-            buildSeededColorScheme(
-                seedHex = customization.customAccentHex,
-                isDark = isDark,
+
+        if (isDark) {
+            ensureDarkGlassContrastScheme(
+                scheme = rawScheme,
+                amoledDark = amoledDark,
+                isGlass = isGlass,
+                dynamicThemingEnabled = effectiveDynamic,
                 surfaceDepth = customization.m3SurfaceDepth
             )
-        }
-    }
-
-    val colorScheme = if (isDark) {
-        ensureDarkGlassContrastScheme(
-            scheme = rawScheme,
-            amoledDark = amoledDark,
-            isGlass = isGlass,
-            dynamicThemingEnabled = effectiveDynamic,
-            surfaceDepth = customization.m3SurfaceDepth
-        )
-    } else {
-        val depthRatio = ((customization.m3SurfaceDepth - 0.6f) / 0.8f).coerceIn(0f, 1f) * 0.22f
-        if (effectiveDynamic && depthRatio > 0.01f) {
-            rawScheme.copy(
-                surfaceContainerLow = lerp(rawScheme.surfaceContainerLow, rawScheme.primary, depthRatio * 0.65f),
-                surfaceContainer = lerp(rawScheme.surfaceContainer, rawScheme.primary, depthRatio * 0.90f),
-                surfaceContainerHigh = lerp(rawScheme.surfaceContainerHigh, rawScheme.primary, depthRatio * 1.15f),
-                surfaceContainerHighest = lerp(rawScheme.surfaceContainerHighest, rawScheme.primary, depthRatio * 1.35f)
-            )
         } else {
-            rawScheme
+            val depthRatio = ((customization.m3SurfaceDepth - 0.6f) / 0.8f).coerceIn(0f, 1f) * 0.22f
+            if (effectiveDynamic && depthRatio > 0.01f) {
+                rawScheme.copy(
+                    surfaceContainerLow = lerp(rawScheme.surfaceContainerLow, rawScheme.primary, depthRatio * 0.65f),
+                    surfaceContainer = lerp(rawScheme.surfaceContainer, rawScheme.primary, depthRatio * 0.90f),
+                    surfaceContainerHigh = lerp(rawScheme.surfaceContainerHigh, rawScheme.primary, depthRatio * 1.15f),
+                    surfaceContainerHighest = lerp(rawScheme.surfaceContainerHighest, rawScheme.primary, depthRatio * 1.35f)
+                )
+            } else {
+                rawScheme
+            }
         }
     }
 
-    val shapes = buildBackdropShapes(customization.m3CornerRadiusScale)
+    val shapes = buildBackdropShapes(customization.m3CornerRadiusScale, uiStyle = uiStyle)
+    val effectiveFontForStyle = if (isGlyph && customization.studioFont == BackdropStudioFont.BACKDROP_DEFAULT) {
+        BackdropStudioFont.GLYPH
+    } else {
+        customization.studioFont
+    }
     val typography = buildAppTypography(
         scale = customization.m3TypographyScale,
-        studioFont = customization.studioFont
+        studioFont = effectiveFontForStyle
     )
 
     CompositionLocalProvider(

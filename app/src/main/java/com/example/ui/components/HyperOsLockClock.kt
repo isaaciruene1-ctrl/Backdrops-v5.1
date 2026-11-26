@@ -57,6 +57,7 @@ import com.example.ui.theme.BodoniModaFontFamily
 import com.example.ui.theme.CaveatFontFamily
 import com.example.ui.theme.CinzelFontFamily
 import com.example.ui.theme.CormorantFontFamily
+import com.example.ui.theme.DotGothicFontFamily
 import com.example.ui.theme.FredokaFontFamily
 import com.example.ui.theme.InstrumentSerifFontFamily
 import com.example.ui.theme.JetBrainsMonoFontFamily
@@ -146,8 +147,10 @@ enum class HyperOsClockFace(
     ORBITAL_RING_HYBRID("Orbital Hybrid", "Analog dial ticks orbiting digital core", HyperOsClockFont.ORBITRON, HyperOsClockFamily.CLASSIC, ClockAspectProfile.BALANCED),
     COMPASS_CHRONO("Compass Dial", "Precision azimuth dial orbiting mono core", HyperOsClockFont.SYNE_MONO, HyperOsClockFamily.CLASSIC, ClockAspectProfile.BALANCED),
     GLYPH_SEGMENTED("Glyph Seg", "Crisp 7-segment hardware telemetry numerals", HyperOsClockFont.JETBRAINS_MONO, HyperOsClockFamily.CLASSIC, ClockAspectProfile.BALANCED),
+    GLYPH_SUNBURST_ANALOG("Glyph Sunburst", "Minimalist radial tick dial with crimson second sweep", HyperOsClockFont.DOT_GOTHIC, HyperOsClockFamily.CLASSIC, ClockAspectProfile.BALANCED),
 
     // RHOMBUS, GLYPH & MODULAR CAPSULES
+    GLYPH_DOT_MATRIX_DIGITAL("Glyph Matrix", "Clustered dot-matrix LED numerals with monochrome red dot", HyperOsClockFont.DOT_GOTHIC, HyperOsClockFamily.RHOMBUS, ClockAspectProfile.WIDE_HORIZONTAL),
     GLYPH_GEOMETRIC("Glyph Geo", "Modular dot-matrix & geometric Glyph digits", HyperOsClockFont.ORBITRON, HyperOsClockFamily.RHOMBUS, ClockAspectProfile.BALANCED),
     GLASS_PILL_TRIO("Capsule Trio", "Modular frosted hour, min & status pills", HyperOsClockFont.SYNE, HyperOsClockFamily.RHOMBUS, ClockAspectProfile.WIDE_HORIZONTAL),
     BRUTALIST_SLAB("Slab Split", "Heavy asymmetric slab blocks & battery pill", HyperOsClockFont.ARCHIVO_BLACK, HyperOsClockFamily.RHOMBUS, ClockAspectProfile.WIDE_HORIZONTAL),
@@ -185,6 +188,7 @@ enum class HyperOsClockFont(
     ORBITRON("Orbitron", OrbitronFontFamily, R.font.orbitron, ClockTypefaceCategory.MONO),
     SYNE_MONO("Syne Mono", SyneMonoFontFamily, R.font.syne_mono, ClockTypefaceCategory.MONO),
     SILKSCREEN("Pixel LED", SilkscreenFontFamily, R.font.silkscreen, ClockTypefaceCategory.MONO),
+    DOT_GOTHIC("Glyph Dot", DotGothicFontFamily, R.font.dotgothic16, ClockTypefaceCategory.MONO),
     MAJOR_MONO("Major", MajorMonoFontFamily, R.font.major_mono_display, ClockTypefaceCategory.MONO),
     SHANTELL_SANS("Script", ShantellSansFontFamily, R.font.shantell_sans, ClockTypefaceCategory.SCRIPT),
     CAVEAT("Caveat", CaveatFontFamily, R.font.caveat, ClockTypefaceCategory.SCRIPT)
@@ -614,7 +618,9 @@ fun HyperOsLockClock(
                                 targetFace == HyperOsClockFace.PIXEL_DUAL_DIAL ||
                                 targetFace == HyperOsClockFace.CHRONO_TELEMETRY ||
                                 targetFace == HyperOsClockFace.GLYPH_GEOMETRIC ||
-                                targetFace == HyperOsClockFace.GLYPH_SEGMENTED
+                                targetFace == HyperOsClockFace.GLYPH_SEGMENTED ||
+                                targetFace == HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL ||
+                                targetFace == HyperOsClockFace.GLYPH_SUNBURST_ANALOG
                             val maskSecondsKey = if (isLiveSecondsMaskFace) parts.seconds else ""
                             val captureKey = remember(
                                 targetFace,

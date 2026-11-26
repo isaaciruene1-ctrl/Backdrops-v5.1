@@ -8,12 +8,16 @@ import com.example.data.model.FavoriteDoc
 import com.example.data.model.ImageQualityPref
 import com.example.data.model.LockScreenSetDoc
 import com.example.data.model.MaterialNavStyle
+import com.example.data.model.LockShortcutConfig
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.RecentlyViewedDoc
 import com.example.data.model.SecondaryWidgetPagePosition
+import com.example.data.model.StudioWidgetType
 import com.example.data.model.ThemeMode
 import com.example.data.model.UiStyleMode
 import com.example.data.model.UserCollectionDoc
 import com.example.data.model.UserPreferencesDoc
+import com.example.data.model.WallpaperMotionMode
 import com.example.ui.components.ClockDesignConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,9 +112,11 @@ object PreferenceCodecSubEngine {
         glassSpecularHighlights = doc.glassSpecularHighlights.coerceIn(0.2f, 1.5f),
         glassBorderSoftness = doc.glassBorderSoftness.coerceIn(0.4f, 1.5f),
         glassAdaptiveContrast = doc.glassAdaptiveContrast.coerceIn(0.6f, 1.5f),
-        offlinePackTargetCount = doc.offlinePackTargetCount.coerceIn(25, 300),
+        offlinePackTargetCount = doc.offlinePackTargetCount.coerceIn(25, 100),
         lockScreenMaxWidgets = doc.lockScreenMaxWidgets.coerceIn(0, 6),
-        widgetPageMaxWidgets = doc.widgetPageMaxWidgets.coerceIn(1, 12)
+        widgetPageMaxWidgets = doc.widgetPageMaxWidgets.coerceIn(1, 12),
+        mediaPlayerSizeTier = MediaPlayerSizeTier.fromName(doc.mediaPlayerSizeTier).name,
+        wallpaperMotionMode = WallpaperMotionMode.fromName(doc.wallpaperMotionMode).name
     )
 }
 
@@ -521,6 +527,16 @@ class GuestLocalUserStore(context: Context) : UserSyncDataSource {
             putInt(KEY_WIDGET_PAGE_MAX_WIDGETS, doc.widgetPageMaxWidgets.coerceIn(1, 12))
             putBoolean(KEY_SAMSUNG_MEDIA_PILL, doc.samsungMediaPillEnabled)
             putBoolean(KEY_PIXEL_CHARGING_WAVE, doc.pixelChargingWaveEnabled)
+            putBoolean(KEY_EXPLORE_CURATED_SHELF, doc.exploreCuratedShelfEnabled)
+            putBoolean(KEY_GLANCE_PILL_ENABLED, doc.glancePillEnabled)
+            putBoolean(KEY_GLANCE_PILL_COEXIST, doc.glancePillCoexistWithWidgets)
+            putString(KEY_MEDIA_PLAYER_SIZE_TIER, doc.mediaPlayerSizeTier)
+            putString(KEY_WIDGET_PAGE_WIDGETS_JSON, doc.widgetPageWidgetsJson)
+            putString(KEY_INLINE_TOP_WIDGET_TYPE, doc.inlineTopWidgetType)
+            putBoolean(KEY_INLINE_TOP_WIDGET_ENABLED, doc.inlineTopWidgetEnabled)
+            putString(KEY_LEFT_SHORTCUT_JSON, doc.leftShortcutJson)
+            putString(KEY_RIGHT_SHORTCUT_JSON, doc.rightShortcutJson)
+            putString(KEY_WALLPAPER_MOTION_MODE, doc.wallpaperMotionMode)
         }
     }
 
@@ -633,6 +649,16 @@ class GuestLocalUserStore(context: Context) : UserSyncDataSource {
         private const val KEY_WIDGET_PAGE_MAX_WIDGETS = "widget_page_max_widgets"
         private const val KEY_SAMSUNG_MEDIA_PILL = "samsung_media_pill_enabled"
         private const val KEY_PIXEL_CHARGING_WAVE = "pixel_charging_wave_enabled"
+        private const val KEY_EXPLORE_CURATED_SHELF = "explore_curated_shelf_enabled"
+        private const val KEY_GLANCE_PILL_ENABLED = "glance_pill_enabled"
+        private const val KEY_GLANCE_PILL_COEXIST = "glance_pill_coexist_with_widgets"
+        private const val KEY_MEDIA_PLAYER_SIZE_TIER = "media_player_size_tier"
+        private const val KEY_WIDGET_PAGE_WIDGETS_JSON = "widget_page_widgets_json"
+        private const val KEY_INLINE_TOP_WIDGET_TYPE = "inline_top_widget_type"
+        private const val KEY_INLINE_TOP_WIDGET_ENABLED = "inline_top_widget_enabled"
+        private const val KEY_LEFT_SHORTCUT_JSON = "left_shortcut_json"
+        private const val KEY_RIGHT_SHORTCUT_JSON = "right_shortcut_json"
+        private const val KEY_WALLPAPER_MOTION_MODE = "wallpaper_motion_mode"
 
         @Volatile
         private var sharedBacking: StoreBacking? = null
@@ -782,7 +808,7 @@ class GuestLocalUserStore(context: Context) : UserSyncDataSource {
                 onDeviceCollectionEnabled = prefs.getBoolean(KEY_ON_DEVICE_ENABLED, true),
                 onDeviceFolderUris = parseStringArray(prefs.getString(KEY_ON_DEVICE_FOLDERS, "[]")),
                 onDevicePhotoUris = parseStringArray(prefs.getString(KEY_ON_DEVICE_PHOTOS, "[]")),
-                offlinePackTargetCount = prefs.getInt(KEY_OFFLINE_TARGET_COUNT, 60).coerceIn(25, 300),
+                offlinePackTargetCount = prefs.getInt(KEY_OFFLINE_TARGET_COUNT, 50).coerceIn(25, 100),
                 offlineDownloadedIds = parseStringArray(prefs.getString(KEY_OFFLINE_DOWNLOADED_IDS, "[]")),
                 offlinePackStatus = prefs.getString(KEY_OFFLINE_STATUS, "IDLE") ?: "IDLE",
                 syncHomeWithLockMode = prefs.getBoolean(KEY_SYNC_HOME_WITH_LOCK, false),
@@ -799,7 +825,20 @@ class GuestLocalUserStore(context: Context) : UserSyncDataSource {
                 lockScreenMaxWidgets = prefs.getInt(KEY_LOCK_SCREEN_MAX_WIDGETS, 4).coerceIn(0, 6),
                 widgetPageMaxWidgets = prefs.getInt(KEY_WIDGET_PAGE_MAX_WIDGETS, 8).coerceIn(1, 12),
                 samsungMediaPillEnabled = prefs.getBoolean(KEY_SAMSUNG_MEDIA_PILL, true),
-                pixelChargingWaveEnabled = prefs.getBoolean(KEY_PIXEL_CHARGING_WAVE, true)
+                pixelChargingWaveEnabled = prefs.getBoolean(KEY_PIXEL_CHARGING_WAVE, true),
+                exploreCuratedShelfEnabled = prefs.getBoolean(KEY_EXPLORE_CURATED_SHELF, false),
+                glancePillEnabled = prefs.getBoolean(KEY_GLANCE_PILL_ENABLED, true),
+                glancePillCoexistWithWidgets = prefs.getBoolean(KEY_GLANCE_PILL_COEXIST, false),
+                mediaPlayerSizeTier = prefs.getString(KEY_MEDIA_PLAYER_SIZE_TIER, MediaPlayerSizeTier.COMPACT.name)
+                    ?: MediaPlayerSizeTier.COMPACT.name,
+                widgetPageWidgetsJson = prefs.getString(KEY_WIDGET_PAGE_WIDGETS_JSON, "") ?: "",
+                inlineTopWidgetType = prefs.getString(KEY_INLINE_TOP_WIDGET_TYPE, StudioWidgetType.QUICK_INFO.name)
+                    ?: StudioWidgetType.QUICK_INFO.name,
+                inlineTopWidgetEnabled = prefs.getBoolean(KEY_INLINE_TOP_WIDGET_ENABLED, true),
+                leftShortcutJson = prefs.getString(KEY_LEFT_SHORTCUT_JSON, "") ?: "",
+                rightShortcutJson = prefs.getString(KEY_RIGHT_SHORTCUT_JSON, "") ?: "",
+                wallpaperMotionMode = prefs.getString(KEY_WALLPAPER_MOTION_MODE, WallpaperMotionMode.STATIC.name)
+                    ?: WallpaperMotionMode.STATIC.name
             ).let { PreferenceCodecSubEngine.sanitizePreferences(it) }
         }
 

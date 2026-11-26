@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.data.model.LockScreenSetDoc
+import com.example.data.model.LockShortcutAction
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.StudioWidgetItem
 import com.example.data.model.UserPreferencesDoc
 import com.example.data.repository.GuestLocalUserStore
@@ -181,6 +183,24 @@ class BackdropLockActivity : ComponentActivity() {
                         lifecycleScope.launch {
                             store.updatePreferences(GuestLocalUserStore.GUEST_USER_ID) { current ->
                                 current.copy(studioWidgetsJson = StudioWidgetItem.listToJson(nextList))
+                            }
+                        }
+                    },
+                    onCycleMediaSizeTier = { nextTier: MediaPlayerSizeTier ->
+                        lifecycleScope.launch {
+                            store.updatePreferences(GuestLocalUserStore.GUEST_USER_ID) { current ->
+                                current.copy(mediaPlayerSizeTier = nextTier.name)
+                            }
+                        }
+                    },
+                    onExecuteShortcut = { shortcut ->
+                        if (shortcut.action == LockShortcutAction.FLASHLIGHT) {
+                            LockShortcutExecutor.toggleFlashlight(this@BackdropLockActivity)
+                        } else if (isPreviewMode) {
+                            LockShortcutExecutor.executeShortcut(this@BackdropLockActivity, shortcut)
+                        } else {
+                            requestUnlockAndRun {
+                                LockShortcutExecutor.executeShortcut(this@BackdropLockActivity, shortcut)
                             }
                         }
                     },

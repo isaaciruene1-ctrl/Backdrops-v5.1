@@ -101,11 +101,11 @@ class TenPartIntegrityQaTest {
         DockDestinationSpec("profile", "Profile", Icons.Filled.Person, Icons.Outlined.Person)
     )
 
-    // TEST 1: Clock Studio Exhaustive Coverage (33 faces, 22 fonts, 5 signature modes, aspect adaptivity)
+    // TEST 1: Clock Studio Exhaustive Coverage (39 faces incl. Glyph, 23 fonts, 5 signature modes, aspect adaptivity)
     @Test
     fun test01_clockStudioFacesFontsFinishesStretchAndFormats() {
-        assertEquals(33, HyperOsClockFace.entries.size)
-        assertEquals(22, HyperOsClockFont.entries.size)
+        assertEquals(39, HyperOsClockFace.entries.size)
+        assertEquals(23, HyperOsClockFont.entries.size)
         assertEquals(7, HyperOsClockFinish.entries.size)
         assertEquals(5, ClockSignatureMode.entries.size)
 

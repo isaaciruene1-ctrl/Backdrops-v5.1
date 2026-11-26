@@ -336,21 +336,31 @@ internal fun StudioWallpaperTargetDialog(
     onSelectTarget: (WallpaperTarget, Boolean) -> Unit
 ) {
     var localSyncHomeWithLock by remember(syncHomeWithLockMode) { mutableStateOf(syncHomeWithLockMode) }
-    val isGlass = LocalUiStyleMode.current == UiStyleMode.FROSTED_GLASS_OS
+    val uiStyle = LocalUiStyleMode.current
+    val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
 
     Dialog(onDismissRequest = onDismiss) {
         TactileSurface(
-            containerColor = if (isGlass) {
-                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.86f)
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = when {
+                isGlyph -> MaterialTheme.colorScheme.surfaceContainerLow
+                isGlass -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.86f)
+                else -> MaterialTheme.colorScheme.surfaceContainerHigh
             },
             glassTintAlpha = if (isGlass) 0.78f else 1f,
-            shape = RoundedCornerShape(if (isGlass) 30.dp else 28.dp),
-            tonalElevation = if (isGlass) 12.dp else 6.dp,
-            border = if (isGlass) {
-                BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f))
-            } else null,
+            shape = RoundedCornerShape(
+                when {
+                    isGlyph -> 20.dp
+                    isGlass -> 30.dp
+                    else -> 28.dp
+                }
+            ),
+            tonalElevation = if (isGlass || isGlyph) 0.dp else 6.dp,
+            border = when {
+                isGlyph -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                isGlass -> BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f))
+                else -> null
+            },
             modifier = Modifier
                 .widthIn(max = 410.dp)
                 .fillMaxWidth()
@@ -620,39 +630,170 @@ internal fun AdaptiveDesignSlider(
     onValueChangeFinished: (() -> Unit)? = null
 ) {
     val uiStyle = LocalUiStyleMode.current
-    if (uiStyle == UiStyleMode.FROSTED_GLASS_OS) {
-        LiquidGlassSlider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            thumbColorOverride = thumbColorOverride,
-            onValueChangeFinished = onValueChangeFinished,
-            modifier = modifier
-        )
-    } else {
-        val haptics = rememberStudioHaptics()
-        val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1e-4f)
-        val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
-        var lastDetentBucket by remember { mutableIntStateOf((fraction * 10f).roundToInt()) }
-        Slider(
-            value = value.coerceIn(valueRange.start, valueRange.endInclusive),
-            onValueChange = { next ->
-                val f = ((next - valueRange.start) / span).coerceIn(0f, 1f)
-                val bucket = (f * 10f).roundToInt()
-                if (bucket != lastDetentBucket) {
-                    lastDetentBucket = bucket
-                    haptics.performTick(45L)
+    when (uiStyle) {
+        UiStyleMode.FROSTED_GLASS_OS -> {
+            LiquidGlassSlider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                thumbColorOverride = thumbColorOverride,
+                onValueChangeFinished = onValueChangeFinished,
+                modifier = modifier
+            )
+        }
+        UiStyleMode.GLYPH_UI -> {
+            GlyphSteppedDotSlider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                thumbColorOverride = thumbColorOverride,
+                onValueChangeFinished = onValueChangeFinished,
+                modifier = modifier
+            )
+        }
+        UiStyleMode.MATERIAL_3 -> {
+            val haptics = rememberStudioHaptics()
+            val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1e-4f)
+            val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
+            var lastDetentBucket by remember { mutableIntStateOf((fraction * 10f).roundToInt()) }
+            Slider(
+                value = value.coerceIn(valueRange.start, valueRange.endInclusive),
+                onValueChange = { next ->
+                    val f = ((next - valueRange.start) / span).coerceIn(0f, 1f)
+                    val bucket = (f * 10f).roundToInt()
+                    if (bucket != lastDetentBucket) {
+                        lastDetentBucket = bucket
+                        haptics.performTick(45L)
+                    }
+                    onValueChange(next)
+                },
+                valueRange = valueRange,
+                onValueChangeFinished = onValueChangeFinished,
+                colors = SliderDefaults.colors(
+                    thumbColor = thumbColorOverride ?: MaterialTheme.colorScheme.primary,
+                    activeTrackColor = thumbColorOverride ?: MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                ),
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+internal fun GlyphSteppedDotSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    modifier: Modifier = Modifier,
+    thumbColorOverride: Color? = null,
+    onValueChangeFinished: (() -> Unit)? = null
+) {
+    val haptics = rememberStudioHaptics()
+    val span = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1e-4f)
+    val fraction = ((value - valueRange.start) / span).coerceIn(0f, 1f)
+    var lastDetentBucket by remember { mutableIntStateOf((fraction * 12f).roundToInt()) }
+
+    val latestOnValueChange by rememberUpdatedState(onValueChange)
+    val latestOnFinished by rememberUpdatedState(onValueChangeFinished)
+    val latestValueRange by rememberUpdatedState(valueRange)
+
+    BoxWithConstraints(
+        contentAlignment = Alignment.CenterStart,
+        modifier = modifier
+            .height(34.dp)
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = value.coerceIn(valueRange.start, valueRange.endInclusive),
+                    range = valueRange
+                )
+                setProgress { targetVal ->
+                    onValueChange(targetVal.coerceIn(valueRange.start, valueRange.endInclusive))
+                    true
                 }
-                onValueChange(next)
-            },
-            valueRange = valueRange,
-            onValueChangeFinished = onValueChangeFinished,
-            colors = SliderDefaults.colors(
-                thumbColor = thumbColorOverride ?: MaterialTheme.colorScheme.primary,
-                activeTrackColor = thumbColorOverride ?: MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-            ),
-            modifier = modifier
+            }
+            .pointerInput(valueRange) {
+                val widthPx = size.width.toFloat().coerceAtLeast(1f)
+                val thumbPx = 10.dp.toPx()
+                val usableW = (widthPx - thumbPx * 2f).coerceAtLeast(1f)
+                fun dispatch(xPx: Float) {
+                    val f = ((xPx - thumbPx) / usableW).coerceIn(0f, 1f)
+                    val rng = latestValueRange
+                    val next = (rng.start + (rng.endInclusive - rng.start) * f).coerceIn(rng.start, rng.endInclusive)
+                    val bucket = (f * 12f).roundToInt()
+                    if (bucket != lastDetentBucket) {
+                        lastDetentBucket = bucket
+                        haptics.performTick(35L)
+                    }
+                    latestOnValueChange(next)
+                }
+                detectTapGestures { offset ->
+                    dispatch(offset.x)
+                    latestOnFinished?.invoke()
+                }
+            }
+            .pointerInput(valueRange) {
+                val widthPx = size.width.toFloat().coerceAtLeast(1f)
+                val thumbPx = 10.dp.toPx()
+                val usableW = (widthPx - thumbPx * 2f).coerceAtLeast(1f)
+                fun dispatch(xPx: Float) {
+                    val f = ((xPx - thumbPx) / usableW).coerceIn(0f, 1f)
+                    val rng = latestValueRange
+                    val next = (rng.start + (rng.endInclusive - rng.start) * f).coerceIn(rng.start, rng.endInclusive)
+                    val bucket = (f * 12f).roundToInt()
+                    if (bucket != lastDetentBucket) {
+                        lastDetentBucket = bucket
+                        haptics.performTick(35L)
+                    }
+                    latestOnValueChange(next)
+                }
+                detectDragGestures(
+                    onDragStart = { dispatch(it.x) },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        dispatch(change.position.x)
+                    },
+                    onDragEnd = { latestOnFinished?.invoke() }
+                )
+            }
+    ) {
+        val density = LocalDensity.current
+        val totalPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        val thumbW = 14.dp
+        val thumbPx = with(density) { thumbW.toPx() }
+        val usablePx = (totalPx - thumbPx).coerceAtLeast(0f)
+        val thumbX = (usablePx * fraction).roundToInt()
+        val dotCount = 13
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(dotCount) { idx ->
+                val dotFraction = idx.toFloat() / (dotCount - 1).toFloat()
+                val filled = dotFraction <= fraction + 0.02f
+                Box(
+                    modifier = Modifier
+                        .size(if (filled) 4.dp else 3.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (filled) (thumbColorOverride ?: MaterialTheme.colorScheme.primary)
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(x = thumbX, y = 0) }
+                .size(width = thumbW, height = 20.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(thumbColorOverride ?: MaterialTheme.colorScheme.primary)
+                .border(1.dp, MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(6.dp))
         )
     }
 }

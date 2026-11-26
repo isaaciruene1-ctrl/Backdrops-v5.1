@@ -1,11 +1,15 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,22 +38,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.LockClock
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,9 +83,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.catalog.WallpaperCatalog
 import com.example.data.model.DiscoveryCollection
+import com.example.data.model.LockScreenSetDoc
 import com.example.data.model.UiStyleMode
 import com.example.data.model.Wallpaper
 import com.example.data.model.WallpaperCategory
+import com.example.data.repository.OnDeviceWallpaperRepository
 import com.example.engine.performance.PreloadPriority
 import com.example.engine.performance.ZeroLagPerformanceEngine
 import com.example.ui.components.BackdropWordmark
@@ -86,6 +98,8 @@ import com.example.ui.components.WallpaperAsyncImage
 import com.example.ui.components.WallpaperGridCard
 import com.example.ui.components.glassSpecularBorder
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalUiStyleMode
 import java.util.Calendar
@@ -183,6 +197,16 @@ fun HomeScreen(
     onOpenOnDeviceCollection: (() -> Unit)? = null,
     offlineWallpapers: List<Wallpaper> = emptyList(),
     onOpenOfflineCollection: (() -> Unit)? = null,
+    activeHomeWallpaper: Wallpaper? = null,
+    activeLockWallpaper: Wallpaper? = null,
+    activeLockSetName: String = "",
+    savedLockSets: List<LockScreenSetDoc> = emptyList(),
+    onDeviceFolderCount: Int = 0,
+    onOpenLockScreenMode: () -> Unit = {},
+    onOpenPreviewStudio: (Wallpaper) -> Unit = {},
+    onAddOnDevicePhotos: (List<String>) -> Unit = {},
+    onAddOnDeviceFolder: (String) -> Unit = {},
+    onOpenLockScreenSet: (LockScreenSetDoc) -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     scrollToTopTick: Int = 0,
     modifier: Modifier = Modifier
@@ -190,6 +214,7 @@ fun HomeScreen(
     val uiStyle = LocalUiStyleMode.current
     val reducedMotion = LocalReducedMotionFlag.current
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
     val totalCatalogCount = remember { WallpaperCatalog.allWallpapers.size }
 
     val shelves = remember(discoverySeed) { buildDeduplicatedHomeShelves(discoverySeed) }
@@ -391,6 +416,218 @@ fun HomeScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            // Personal Wallpaper & Folder Hub (Active Home/Lock + Pickers + Lock Studio Launch)
+            item {
+                val resolvedHomeWp = activeHomeWallpaper ?: featured.firstOrNull()
+                val resolvedLockWp = activeLockWallpaper ?: resolvedHomeWp ?: featured.firstOrNull()
+                val photoPickerLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.PickMultipleVisualMedia(20)
+                ) { uris ->
+                    if (uris.isNotEmpty()) {
+                        uris.forEach { OnDeviceWallpaperRepository.takePersistableReadPermission(context, it, isTree = false) }
+                        onAddOnDevicePhotos(uris.map { it.toString() })
+                    }
+                }
+                val folderPickerLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocumentTree()
+                ) { treeUri ->
+                    if (treeUri != null) {
+                        OnDeviceWallpaperRepository.takePersistableReadPermission(context, treeUri, isTree = true)
+                        onAddOnDeviceFolder(treeUri.toString())
+                    }
+                }
+
+                TactileSurface(
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .testTag("home_personal_hub_card")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (isGlyph) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(GlyphRedDot)
+                                    )
+                                }
+                                Text(
+                                    text = if (isGlyph) "PERSONAL HUB" else "Your Screen Hub",
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            if (activeLockSetName.isNotBlank()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                    shape = RoundedCornerShape(50)
+                                ) {
+                                    Text(
+                                        text = activeLockSetName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            resolvedLockWp?.let { lockWp ->
+                                ActiveScreenPreviewMiniCard(
+                                    label = "Active Lock",
+                                    wallpaper = lockWp,
+                                    onClick = onOpenLockScreenMode,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("home_active_lock_preview")
+                                )
+                            }
+                            resolvedHomeWp?.let { homeWp ->
+                                ActiveScreenPreviewMiniCard(
+                                    label = "Active Home",
+                                    wallpaper = homeWp,
+                                    onClick = { onOpenPreviewStudio(homeWp) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("home_active_home_preview")
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = onOpenLockScreenMode,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("home_quick_lock_studio_btn")
+                            ) {
+                                Icon(Icons.Rounded.LockClock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Lock Studio", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            OutlinedButton(
+                                onClick = { resolvedLockWp?.let(onOpenPreviewStudio) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("home_quick_preview_btn")
+                            ) {
+                                Icon(Icons.Rounded.Fullscreen, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Preview", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("home_quick_import_photos_btn")
+                            ) {
+                                Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Import Photo", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            OutlinedButton(
+                                onClick = { folderPickerLauncher.launch(null) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("home_quick_add_folder_btn")
+                            ) {
+                                Icon(Icons.Rounded.CreateNewFolder, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (onDeviceFolderCount > 0) "Folders ($onDeviceFolderCount)" else "Add Folder",
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (savedLockSets.isNotEmpty()) {
+                item(key = "home_saved_lock_sets_shelf") {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.testTag("home_saved_sets_shelf")
+                    ) {
+                        SectionHeader(
+                            title = "Saved Lock Sets",
+                            subtitle = "${savedLockSets.size} customized lock layouts ready to apply",
+                            onSeeAll = onOpenLockScreenMode
+                        )
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(savedLockSets.take(10), key = { it.id }) { setDoc ->
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    shape = RoundedCornerShape(18.dp),
+                                    border = if (isGlyph) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else glassSpecularBorder(),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .clickable { onOpenLockScreenSet(setDoc) }
+                                        .testTag("home_saved_set_${setDoc.id}")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.LockClock,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = setDoc.name.ifBlank { "Custom Set" },
+                                            style = MaterialTheme.typography.labelLarge,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -735,11 +972,69 @@ fun HomeScreen(
 }
 
 @Composable
+private fun ActiveScreenPreviewMiniCard(
+    label: String,
+    wallpaper: Wallpaper,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isGlyph = LocalUiStyleMode.current == UiStyleMode.GLYPH_UI
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        border = if (isGlyph) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else glassSpecularBorder(),
+        modifier = modifier
+            .aspectRatio(1.25f)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            WallpaperAsyncImage(
+                wallpaper = wallpaper,
+                useFullRes = false,
+                contentDescription = label,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f))
+                        )
+                    )
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(10.dp)
+            ) {
+                Text(
+                    text = label.uppercase(),
+                    fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White.copy(alpha = 0.85f)
+                )
+                Text(
+                    text = wallpaper.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun SectionHeader(
     title: String,
     subtitle: String,
     onSeeAll: () -> Unit
 ) {
+    val isGlyph = LocalUiStyleMode.current == UiStyleMode.GLYPH_UI
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -749,7 +1044,8 @@ private fun SectionHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = title,
+                text = if (isGlyph) title.uppercase() else title,
+                fontFamily = if (isGlyph) DotGothicFontFamily else null,
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface
             )

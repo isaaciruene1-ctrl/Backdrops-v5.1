@@ -74,6 +74,8 @@ import com.example.ui.components.BackdropLogoMark
 import com.example.ui.components.DockDestinationSpec
 import com.example.ui.components.FrostedFloatingNavDock
 import com.example.ui.components.FrostedFloatingNavRail
+import com.example.ui.components.GlyphBottomNavDock
+import com.example.ui.components.GlyphNavRail
 import com.example.ui.components.PixelMaterialBottomBar
 import com.example.ui.components.StudioDestination
 import com.example.ui.components.TactileAmbientBackdrop
@@ -384,43 +386,54 @@ private fun BackdropMainShell(
                         else -> 2
                     }
 
+                    val currentUiStyle = preferences.parsedUiStyle
                     Row(modifier = Modifier.fillMaxSize()) {
                         if (useRail && isTopLevelRoute) {
-                            if (isGlassUi) {
-                                FrostedFloatingNavRail(
-                                    destinations = dockDestinations,
-                                    currentRoute = currentRoute,
-                                    onSelectRoute = ::navigateTopLevel
-                                )
-                            } else {
-                                NavigationRail(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars))
-                                ) {
-                                    Column(
+                            when (currentUiStyle) {
+                                UiStyleMode.FROSTED_GLASS_OS -> {
+                                    FrostedFloatingNavRail(
+                                        destinations = dockDestinations,
+                                        currentRoute = currentRoute,
+                                        onSelectRoute = ::navigateTopLevel
+                                    )
+                                }
+                                UiStyleMode.GLYPH_UI -> {
+                                    GlyphNavRail(
+                                        destinations = dockDestinations,
+                                        currentRoute = currentRoute,
+                                        onSelectRoute = ::navigateTopLevel
+                                    )
+                                }
+                                UiStyleMode.MATERIAL_3 -> {
+                                    NavigationRail(
                                         modifier = Modifier
                                             .fillMaxHeight()
-                                            .verticalScroll(rememberScrollState()),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars))
                                     ) {
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        BackdropLogoMark(size = 30.dp)
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        dockDestinations.forEach { dest ->
-                                            val selected = currentRoute == dest.route
-                                            NavigationRailItem(
-                                                selected = selected,
-                                                onClick = { navigateTopLevel(dest.route) },
-                                                icon = {
-                                                    Icon(
-                                                        imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
-                                                        contentDescription = dest.label
-                                                    )
-                                                },
-                                                label = { Text(dest.label) },
-                                                modifier = Modifier.testTag("nav_${dest.route}")
-                                            )
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxHeight()
+                                                .verticalScroll(rememberScrollState()),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            BackdropLogoMark(size = 30.dp)
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            dockDestinations.forEach { dest ->
+                                                val selected = currentRoute == dest.route
+                                                NavigationRailItem(
+                                                    selected = selected,
+                                                    onClick = { navigateTopLevel(dest.route) },
+                                                    icon = {
+                                                        Icon(
+                                                            imageVector = if (selected) dest.selectedIcon else dest.unselectedIcon,
+                                                            contentDescription = dest.label
+                                                        )
+                                                    },
+                                                    label = { Text(dest.label) },
+                                                    modifier = Modifier.testTag("nav_${dest.route}")
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -444,18 +457,28 @@ private fun BackdropMainShell(
                             },
                             bottomBar = {
                                 if (!useRail && isTopLevelRoute) {
-                                    if (isGlassUi) {
-                                        FrostedFloatingNavDock(
-                                            destinations = dockDestinations,
-                                            currentRoute = currentRoute,
-                                            onSelectRoute = ::navigateTopLevel
-                                        )
-                                    } else {
-                                        PixelMaterialBottomBar(
-                                            destinations = dockDestinations,
-                                            currentRoute = currentRoute,
-                                            onSelectRoute = ::navigateTopLevel
-                                        )
+                                    when (currentUiStyle) {
+                                        UiStyleMode.FROSTED_GLASS_OS -> {
+                                            FrostedFloatingNavDock(
+                                                destinations = dockDestinations,
+                                                currentRoute = currentRoute,
+                                                onSelectRoute = ::navigateTopLevel
+                                            )
+                                        }
+                                        UiStyleMode.GLYPH_UI -> {
+                                            GlyphBottomNavDock(
+                                                destinations = dockDestinations,
+                                                currentRoute = currentRoute,
+                                                onSelectRoute = ::navigateTopLevel
+                                            )
+                                        }
+                                        UiStyleMode.MATERIAL_3 -> {
+                                            PixelMaterialBottomBar(
+                                                destinations = dockDestinations,
+                                                currentRoute = currentRoute,
+                                                onSelectRoute = ::navigateTopLevel
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -480,6 +503,13 @@ private fun BackdropMainShell(
                                     .padding(innerPadding)
                             ) {
                                 composable(BackdropRoutes.HOME) {
+                                    val savedSets = (lockScreenSetsState as? SyncState.Ready)?.data.orEmpty()
+                                    val activeSet = savedSets.firstOrNull { it.id == preferences.activeOverlaySetId } ?: savedSets.firstOrNull()
+                                    val activeHomeWp = WallpaperCatalog.getById(preferences.activeHomeWallpaperId)
+                                        ?: onDeviceWallpapers.firstOrNull { it.id == preferences.activeHomeWallpaperId }
+                                    val activeLockWp = WallpaperCatalog.getById(preferences.activeLockWallpaperId)
+                                        ?: onDeviceWallpapers.firstOrNull { it.id == preferences.activeLockWallpaperId }
+                                        ?: activeHomeWp
                                     HomeScreen(
                                         favoriteIds = favoriteIds,
                                         isRefreshing = isRefreshing,
@@ -505,6 +535,21 @@ private fun BackdropMainShell(
                                         onOpenOnDeviceCollection = { navigateTopLevel(BackdropRoutes.EXPLORE) },
                                         offlineWallpapers = offlineWallpapers,
                                         onOpenOfflineCollection = { navigateTopLevel(BackdropRoutes.COLLECTIONS) },
+                                        activeHomeWallpaper = activeHomeWp,
+                                        activeLockWallpaper = activeLockWp,
+                                        activeLockSetName = activeSet?.name.orEmpty(),
+                                        savedLockSets = savedSets,
+                                        onDeviceFolderCount = preferences.onDeviceFolderUris.size,
+                                        onOpenLockScreenMode = { navController.navigate(BackdropRoutes.LOCK_SCREEN_MODE) },
+                                        onOpenPreviewStudio = { wp -> navController.navigate(BackdropRoutes.preview(wp.id)) },
+                                        onAddOnDevicePhotos = backdropViewModel::addOnDevicePhotoUris,
+                                        onAddOnDeviceFolder = backdropViewModel::addOnDeviceFolderUri,
+                                        onOpenLockScreenSet = { setDoc ->
+                                            val wpId = setDoc.wallpaperId.ifBlank {
+                                                WallpaperCatalog.allWallpapers.first().id
+                                            }
+                                            navController.navigate(BackdropRoutes.depth(wpId, setId = setDoc.id))
+                                        },
                                         listState = homeListState,
                                         scrollToTopTick = homeScrollToTopTick
                                     )
@@ -535,7 +580,12 @@ private fun BackdropMainShell(
                                         scrollToTopTick = exploreScrollToTopTick,
                                         onDeviceWallpapers = onDeviceWallpapers,
                                         onOpenSettingsForOnDevice = { navController.navigate(BackdropRoutes.SETTINGS) },
-                                        offlineWallpapers = offlineWallpapers
+                                        offlineWallpapers = offlineWallpapers,
+                                        curatedShelfEnabled = preferences.exploreCuratedShelfEnabled,
+                                        onToggleCuratedShelf = backdropViewModel::setExploreCuratedShelfEnabled,
+                                        deviceFolderUris = preferences.onDeviceFolderUris,
+                                        onAddDevicePhotos = backdropViewModel::addOnDevicePhotoUris,
+                                        onAddDeviceFolder = backdropViewModel::addOnDeviceFolderUri
                                     )
                                 }
 
@@ -693,7 +743,11 @@ private fun BackdropMainShell(
                                                 context = context,
                                                 onStatePersisted = backdropViewModel::setOfflinePackState
                                             )
-                                        }
+                                        },
+                                        onExploreCuratedShelfChange = backdropViewModel::setExploreCuratedShelfEnabled,
+                                        onGlancePillEnabledChange = backdropViewModel::setGlancePillEnabled,
+                                        onMediaPlayerSizeTierChange = backdropViewModel::setMediaPlayerSizeTier,
+                                        onWallpaperMotionModeChange = backdropViewModel::setWallpaperMotionMode
                                     )
                                 }
 
@@ -728,6 +782,16 @@ private fun BackdropMainShell(
                                         onSetWidgetPageMaxWidgets = backdropViewModel::setWidgetPageMaxWidgets,
                                         onSetSamsungMediaPillEnabled = backdropViewModel::setSamsungMediaPillEnabled,
                                         onSetPixelChargingWaveEnabled = backdropViewModel::setPixelChargingWaveEnabled,
+                                        onSetGlancePillEnabled = backdropViewModel::setGlancePillEnabled,
+                                        onSetGlancePillCoexistWithWidgets = backdropViewModel::setGlancePillCoexistWithWidgets,
+                                        onSetMediaPlayerSizeTier = backdropViewModel::setMediaPlayerSizeTier,
+                                        onSetWidgetPageWidgets = backdropViewModel::setWidgetPageWidgets,
+                                        onSetInlineTopWidget = backdropViewModel::setInlineTopWidget,
+                                        onSetLeftShortcut = backdropViewModel::setLeftShortcut,
+                                        onSetRightShortcut = backdropViewModel::setRightShortcut,
+                                        onSetWallpaperMotionMode = backdropViewModel::setWallpaperMotionMode,
+                                        onCommitClockConfig = depthStudioViewModel::commitClockConfig,
+                                        onResetLockSetup = backdropViewModel::resetLockSetup,
                                         onNavigateStudioDestination = { dest ->
                                             when (dest) {
                                                 StudioDestination.DEPTH -> navController.navigate(BackdropRoutes.depth(targetWpId)) {

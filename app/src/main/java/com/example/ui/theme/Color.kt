@@ -53,3 +53,28 @@ val DarkOutlineVariant = Color(0xFF5D5673)
 
 val PastelRoseError = Color(0xFFBA1A1A)
 val DarkRoseError = Color(0xFFFFB4AB)
+
+// Nothing-Inspired Monochrome Glyph UI Palette (Light & Dark)
+val GlyphOffWhite = Color(0xFFF4F4F4)
+val GlyphWhite = Color(0xFFFFFFFF)
+val GlyphLightSurfaceLow = Color(0xFFFFFFFF)
+val GlyphLightSurface = Color(0xFFEEEEEE)
+val GlyphLightSurfaceHigh = Color(0xFFE6E6E6)
+val GlyphLightSurfaceHighest = Color(0xFFDDDDDD)
+val GlyphLightInk = Color(0xFF111111)
+val GlyphLightMutedInk = Color(0xFF4A4A4A)
+val GlyphLightOutline = Color(0xFF999999)
+val GlyphLightOutlineVariant = Color(0xFFD0D0D0)
+
+val GlyphPitchBlack = Color(0xFF000000)
+val GlyphDarkSurfaceLow = Color(0xFF111111)
+val GlyphDarkSurface = Color(0xFF141414)
+val GlyphDarkSurfaceHigh = Color(0xFF1C1C1C)
+val GlyphDarkSurfaceHighest = Color(0xFF252525)
+val GlyphDarkInk = Color(0xFFFFFFFF)
+val GlyphDarkMutedInk = Color(0xFFB5B5B5)
+val GlyphDarkOutline = Color(0xFF555555)
+val GlyphDarkOutlineVariant = Color(0xFF2E2E2E)
+
+val GlyphRedDot = Color(0xFFD92B2B)
+

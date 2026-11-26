@@ -62,7 +62,8 @@ enum class ThemeMode {
 
 enum class UiStyleMode(val label: String, val subtitle: String) {
     MATERIAL_3("Material 3", "Expressive tonal surfaces & anchored navigation bar"),
-    FROSTED_GLASS_OS("Frosted Glass OS", "Translucent tactile panels, specular rims & floating pill dock")
+    FROSTED_GLASS_OS("Frosted Glass OS", "Translucent tactile panels, specular rims & floating pill dock"),
+    GLYPH_UI("Glyph UI", "Monochrome dot-matrix typography, hairline frames & stepped motion")
 }
 
 enum class DockLayoutMode(val label: String) {
@@ -243,6 +244,17 @@ data class UserPreferencesDoc(
     val widgetPageMaxWidgets: Int = 8,
     val samsungMediaPillEnabled: Boolean = true,
     val pixelChargingWaveEnabled: Boolean = true,
+    // Backdrop V2 Glance Pill, Standalone Media Resize, Independent Widget Page, Shortcuts, Explore Toggle & Motion
+    val exploreCuratedShelfEnabled: Boolean = false,
+    val glancePillEnabled: Boolean = true,
+    val glancePillCoexistWithWidgets: Boolean = false,
+    val mediaPlayerSizeTier: String = MediaPlayerSizeTier.COMPACT.name,
+    val widgetPageWidgetsJson: String = "",
+    val inlineTopWidgetType: String = StudioWidgetType.QUICK_INFO.name,
+    val inlineTopWidgetEnabled: Boolean = true,
+    val leftShortcutJson: String = "",
+    val rightShortcutJson: String = "",
+    val wallpaperMotionMode: String = WallpaperMotionMode.STATIC.name,
     val createdAt: Long? = null,
     val updatedAt: Long? = null
 ) {
@@ -308,6 +320,49 @@ data class UserPreferencesDoc(
 
     val safeWidgetPageMaxWidgets: Int
         get() = widgetPageMaxWidgets.coerceIn(1, 12)
+
+    val parsedMediaPlayerSizeTier: MediaPlayerSizeTier
+        get() = MediaPlayerSizeTier.fromName(mediaPlayerSizeTier)
+
+    val parsedWidgetPageWidgets: List<StudioWidgetItem>
+        get() = if (widgetPageWidgetsJson.isNotBlank()) {
+            StudioWidgetItem.listFromJson(widgetPageWidgetsJson)
+        } else {
+            StudioWidgetItem.listFromJson(
+                raw = studioWidgetsJson,
+                defaultEnabledTypes = setOf(
+                    StudioWidgetType.WEATHER,
+                    StudioWidgetType.CALENDAR,
+                    StudioWidgetType.BATTERY,
+                    StudioWidgetType.STEP_COUNTER
+                )
+            )
+        }
+
+    val parsedInlineTopWidgetType: StudioWidgetType?
+        get() = if (!inlineTopWidgetEnabled) null
+        else runCatching { StudioWidgetType.valueOf(inlineTopWidgetType) }.getOrDefault(StudioWidgetType.QUICK_INFO)
+
+    val parsedLeftShortcut: LockShortcutConfig
+        get() = LockShortcutConfig.fromJsonString(leftShortcutJson, LockShortcutAction.FLASHLIGHT)
+
+    val parsedRightShortcut: LockShortcutConfig
+        get() = LockShortcutConfig.fromJsonString(rightShortcutJson, LockShortcutAction.CAMERA)
+
+    val parsedWallpaperMotionMode: WallpaperMotionMode
+        get() = WallpaperMotionMode.fromName(wallpaperMotionMode)
+
+    /**
+     * Glance Pill overrules the standalone Resizable Compact Media Player when active.
+     */
+    val isStandaloneMediaPlayerActive: Boolean
+        get() = !glancePillEnabled && samsungMediaPillEnabled
+
+    /**
+     * When Glance Pill is active, main lock-screen widgets deactivate by default unless coexistence is enabled.
+     */
+    val areMainLockWidgetsEffective: Boolean
+        get() = !glancePillEnabled || glancePillCoexistWithWidgets
 }
 
 enum class SecondaryWidgetPagePosition(val label: String) {

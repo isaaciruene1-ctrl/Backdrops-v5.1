@@ -103,10 +103,10 @@ abstract class BaseExpandedHomeWidgetProvider : AppWidgetProvider() {
     protected abstract fun buildViews(context: Context, appWidgetId: Int): RemoteViews
 
     protected fun applySurfaceTheme(views: RemoteViews, prefs: UserPreferencesDoc) {
-        val bgRes = if (prefs.uiStyle == UiStyleMode.FROSTED_GLASS_OS.name) {
-            R.drawable.widget_glass_surface_bg
-        } else {
-            R.drawable.widget_m3_surface_bg
+        val bgRes = when (prefs.uiStyle) {
+            UiStyleMode.FROSTED_GLASS_OS.name -> R.drawable.widget_glass_surface_bg
+            UiStyleMode.GLYPH_UI.name -> R.drawable.widget_glyph_surface_bg
+            else -> R.drawable.widget_m3_surface_bg
         }
         views.setInt(R.id.widget_container, "setBackgroundResource", bgRes)
     }
@@ -179,7 +179,8 @@ class BackdropAnalogClockWidgetProvider : BaseExpandedHomeWidgetProvider() {
         val prefs = GuestLocalUserStore.getInstance(context).getCurrentPreferencesSync()
         val views = RemoteViews(context.packageName, R.layout.widget_expanded_analog_clock)
         applySurfaceTheme(views, prefs)
-        views.setImageViewBitmap(R.id.widget_analog_dial, renderAnalogDialBitmap(prefs.customAccentHex))
+        val dialAccent = if (prefs.uiStyle == UiStyleMode.GLYPH_UI.name) 0xFFD92B2BL else prefs.customAccentHex
+        views.setImageViewBitmap(R.id.widget_analog_dial, renderAnalogDialBitmap(dialAccent))
         val dateText = SimpleDateFormat("EEE d", Locale.getDefault()).format(Date()).uppercase()
         views.setTextViewText(R.id.widget_analog_date, dateText)
         views.setOnClickPendingIntent(
@@ -842,7 +843,8 @@ class BackdropCompassWidgetProvider : BaseExpandedHomeWidgetProvider() {
         val prefs = GuestLocalUserStore.getInstance(context).getCurrentPreferencesSync()
         val views = RemoteViews(context.packageName, R.layout.widget_expanded_compass)
         applySurfaceTheme(views, prefs)
-        views.setImageViewBitmap(R.id.widget_compass_dial, renderCompassBitmap(prefs.customAccentHex))
+        val dialAccent = if (prefs.uiStyle == UiStyleMode.GLYPH_UI.name) 0xFFD92B2BL else prefs.customAccentHex
+        views.setImageViewBitmap(R.id.widget_compass_dial, renderCompassBitmap(dialAccent))
         views.setTextViewText(R.id.widget_compass_bearing, "0° N • Studio Compass")
         views.setOnClickPendingIntent(
             R.id.widget_container,

@@ -57,6 +57,8 @@ import com.example.R
 import com.example.data.catalog.WallpaperCatalog
 import com.example.data.media.WallpaperMediaService
 import com.example.data.model.LockScreenSetDoc
+import com.example.data.model.LockShortcutConfig
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.StudioWidgetItem
 import com.example.data.model.UserPreferencesDoc
 import com.example.data.model.Wallpaper
@@ -346,7 +348,9 @@ internal fun LockScreenOverlaySurface(
     onDismissNotification: (String) -> Unit = {},
     onClearAllNotifications: () -> Unit = {},
     onUpdateWidgetItem: ((StudioWidgetItem) -> Unit)? = null,
-    onUpdateWidgetsList: ((List<StudioWidgetItem>) -> Unit)? = null
+    onUpdateWidgetsList: ((List<StudioWidgetItem>) -> Unit)? = null,
+    onCycleMediaSizeTier: ((MediaPlayerSizeTier) -> Unit)? = null,
+    onExecuteShortcut: ((LockShortcutConfig) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val resolved = remember(selectedSet, preferences.activeLockWallpaperId, preferences.activeLockCustomBitmapPath) {
@@ -597,7 +601,10 @@ internal fun LockScreenOverlaySurface(
             onDismissNotification = onDismissNotification,
             onClearAllNotifications = onClearAllNotifications,
             onUpdateWidgetItem = onUpdateWidgetItem,
-            onUpdateWidgetsList = onUpdateWidgetsList
+            onUpdateWidgetsList = onUpdateWidgetsList,
+            onCycleMediaSizeTier = onCycleMediaSizeTier,
+            onExecuteShortcut = onExecuteShortcut,
+            motionMode = preferences.parsedWallpaperMotionMode
         )
 
         AnimatedVisibility(

@@ -59,7 +59,9 @@ import com.example.ui.theme.BodoniModaFontFamily
 import com.example.ui.theme.CaveatFontFamily
 import com.example.ui.theme.CinzelFontFamily
 import com.example.ui.theme.CormorantFontFamily
+import com.example.ui.theme.DotGothicFontFamily
 import com.example.ui.theme.FredokaFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.InstrumentSerifFontFamily
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.OrbitronFontFamily
@@ -605,6 +607,169 @@ internal fun RenderExtendedHyperOsClockFace(
                     drawSevenSegDigit(mmChars[1], mStartX + digitW + gap, startY, digitW, digitH, segAccent)
                 }
                 SharedStrip(stripFont = JetBrainsMonoFontFamily, capsule = true)
+            }
+        }
+
+        // 0E. Glyph Matrix Digital (Clustered 5x7 dot-matrix LED numerals with Nothing red dot accent)
+        HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL -> {
+            val dotMain = if (renderAsGlyphMask) Color.White else primaryColor
+            val dotAccent = if (renderAsGlyphMask) Color.White else GlyphRedDot
+            val hhChars = parts.hours.padStart(2, '0')
+            val mmChars = parts.minutes.padStart(2, '0')
+            Column(
+                horizontalAlignment = colAlignment,
+                verticalArrangement = Arrangement.spacedBy((6 * scale).dp),
+                modifier = Modifier.testTag("clock_face_glyph_dot_matrix_digital")
+            ) {
+                SharedStrip(stripFont = DotGothicFontFamily, capsule = false)
+                Canvas(
+                    modifier = Modifier.size(width = (232 * scale).dp, height = (78 * scale).dp)
+                ) {
+                    val bitmapFont = arrayOf(
+                        // 0..9 as 7 rows of 5-bit patterns
+                        intArrayOf(0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110),
+                        intArrayOf(0b00100, 0b01100, 0b00100, 0b00100, 0b00100, 0b00100, 0b01110),
+                        intArrayOf(0b01110, 0b10001, 0b00001, 0b00110, 0b01000, 0b10000, 0b11111),
+                        intArrayOf(0b11110, 0b00001, 0b00001, 0b01110, 0b00001, 0b00001, 0b11110),
+                        intArrayOf(0b00010, 0b00110, 0b01010, 0b10010, 0b11111, 0b00010, 0b00010),
+                        intArrayOf(0b11111, 0b10000, 0b11110, 0b00001, 0b00001, 0b10001, 0b01110),
+                        intArrayOf(0b01110, 0b10000, 0b11110, 0b10001, 0b10001, 0b10001, 0b01110),
+                        intArrayOf(0b11111, 0b00001, 0b00010, 0b00100, 0b01000, 0b01000, 0b01000),
+                        intArrayOf(0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110),
+                        intArrayOf(0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00001, 0b01110)
+                    )
+                    val colsPerDigit = 5
+                    val rows = 7
+                    val stepY = size.height / (rows + 0.5f)
+                    val stepX = stepY * 0.94f
+                    val dotRadius = (stepY * 0.44f).coerceAtLeast(1.8.dp.toPx())
+                    val digitW = colsPerDigit * stepX
+                    val digitGap = stepX * 0.85f
+                    val colonGap = stepX * 1.4f
+                    val totalW = digitW * 4f + digitGap * 2f + colonGap
+                    val originX = (size.width - totalW) * 0.5f
+                    val originY = (size.height - (rows - 1) * stepY) * 0.5f
+
+                    fun drawMatrixDigit(ch: Char, left: Float, tint: Color) {
+                        val pattern = bitmapFont[(ch - '0').coerceIn(0, 9)]
+                        for (r in 0 until rows) {
+                            val bits = pattern[r]
+                            for (c in 0 until colsPerDigit) {
+                                val active = (bits and (1 shl (colsPerDigit - 1 - c))) != 0
+                                if (active) {
+                                    drawCircle(
+                                        color = tint.copy(alpha = if (renderAsGlyphMask) 1f else opacity),
+                                        radius = dotRadius,
+                                        center = Offset(left + c * stepX + dotRadius * 0.5f, originY + r * stepY)
+                                    )
+                                } else {
+                                    drawCircle(
+                                        color = tint.copy(alpha = if (renderAsGlyphMask) 0.10f else 0.08f * opacity),
+                                        radius = dotRadius * 0.48f,
+                                        center = Offset(left + c * stepX + dotRadius * 0.5f, originY + r * stepY)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    drawMatrixDigit(hhChars[0], originX, dotMain)
+                    drawMatrixDigit(hhChars[1], originX + digitW + digitGap, dotMain)
+
+                    val colonX = originX + digitW * 2f + digitGap + colonGap * 0.5f
+                    val pulseAlpha = if (parts.secondInt % 2 == 0) 1f else 0.45f
+                    drawCircle(
+                        color = dotAccent.copy(alpha = pulseAlpha),
+                        radius = dotRadius * 0.92f,
+                        center = Offset(colonX, originY + stepY * 2f)
+                    )
+                    drawCircle(
+                        color = dotAccent.copy(alpha = pulseAlpha),
+                        radius = dotRadius * 0.92f,
+                        center = Offset(colonX, originY + stepY * 4f)
+                    )
+
+                    val minLeft = originX + digitW * 2f + digitGap + colonGap
+                    drawMatrixDigit(mmChars[0], minLeft, dotMain)
+                    drawMatrixDigit(mmChars[1], minLeft + digitW + digitGap, dotMain)
+                }
+            }
+        }
+
+        // 0F. Glyph Sunburst Analog (Minimalist radial ticks & sweeping hands, Nothing OS inspired)
+        HyperOsClockFace.GLYPH_SUNBURST_ANALOG -> {
+            val tickTint = if (renderAsGlyphMask) Color.White else primaryColor
+            val sweepTint = if (renderAsGlyphMask) Color.White else GlyphRedDot
+            val dialW = (212f * scale).dp
+            val dialH = (154f * scale).dp
+            Column(
+                horizontalAlignment = colAlignment,
+                verticalArrangement = Arrangement.spacedBy((4 * scale).dp),
+                modifier = Modifier.testTag("clock_face_glyph_sunburst_analog")
+            ) {
+                SharedStrip(stripFont = DotGothicFontFamily, capsule = false)
+                Canvas(modifier = Modifier.size(width = dialW, height = dialH)) {
+                    val center = Offset(size.width * 0.5f, size.height * 0.54f)
+                    val radiusX = size.width * 0.44f
+                    val radiusY = size.height * 0.42f
+                    // 12 minimalist radial dashes forming open sunburst dial
+                    for (i in 0 until 12) {
+                        val angleRad = (i * 30.0 - 90.0) * PI / 180.0
+                        val cosA = cos(angleRad).toFloat()
+                        val sinA = sin(angleRad).toFloat()
+                        val isCardinal = i % 3 == 0
+                        val innerF = if (isCardinal) 0.72f else 0.62f
+                        val outerF = if (isCardinal) 0.94f else 0.88f
+                        drawLine(
+                            color = tickTint.copy(alpha = if (renderAsGlyphMask) 1f else (if (isCardinal) 0.92f else 0.68f) * opacity),
+                            start = Offset(center.x + radiusX * innerF * cosA, center.y + radiusY * innerF * sinA),
+                            end = Offset(center.x + radiusX * outerF * cosA, center.y + radiusY * outerF * sinA),
+                            strokeWidth = if (isCardinal) (2.6f * scale).dp.toPx() else (1.8f * scale).dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    val hourAngle = (((parts.hourInt % 12) + parts.minuteInt / 60f) * 30f - 90f) * PI / 180.0
+                    val minAngle = ((parts.minuteInt + parts.secondInt / 60f) * 6f - 90f) * PI / 180.0
+                    val secAngle = (parts.secondInt * 6f - 90f) * PI / 180.0
+                    val handRadius = minOf(radiusX, radiusY)
+
+                    drawLine(
+                        color = tickTint.copy(alpha = if (renderAsGlyphMask) 1f else opacity),
+                        start = center,
+                        end = Offset(
+                            center.x + (handRadius * 0.44f * cos(hourAngle)).toFloat(),
+                            center.y + (handRadius * 0.44f * sin(hourAngle)).toFloat()
+                        ),
+                        strokeWidth = (4.2f * scale).dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = tickTint.copy(alpha = if (renderAsGlyphMask) 1f else opacity),
+                        start = center,
+                        end = Offset(
+                            center.x + (handRadius * 0.62f * cos(minAngle)).toFloat(),
+                            center.y + (handRadius * 0.62f * sin(minAngle)).toFloat()
+                        ),
+                        strokeWidth = (2.8f * scale).dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawLine(
+                        color = sweepTint.copy(alpha = if (renderAsGlyphMask) 1f else opacity),
+                        start = center,
+                        end = Offset(
+                            center.x + (handRadius * 0.68f * cos(secAngle)).toFloat(),
+                            center.y + (handRadius * 0.68f * sin(secAngle)).toFloat()
+                        ),
+                        strokeWidth = (1.4f * scale).dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                    drawCircle(
+                        color = sweepTint.copy(alpha = if (renderAsGlyphMask) 1f else opacity),
+                        radius = (3.4f * scale).dp.toPx(),
+                        center = center
+                    )
+                }
             }
         }
 
@@ -1836,6 +2001,37 @@ internal fun RenderExtendedClockFaceThumbnail(
                     color = Color.White,
                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp)
                 )
+            }
+        }
+        HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL -> {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "12:53",
+                    fontFamily = DotGothicFontFamily,
+                    fontSize = 13.sp,
+                    letterSpacing = 1.sp,
+                    color = Color.White
+                )
+                Box(modifier = Modifier.size(4.dp).background(GlyphRedDot, CircleShape))
+            }
+        }
+        HyperOsClockFace.GLYPH_SUNBURST_ANALOG -> {
+            Canvas(modifier = Modifier.size(32.dp)) {
+                val c = Offset(size.width * 0.5f, size.height * 0.5f)
+                val r = size.minDimension * 0.44f
+                for (i in 0 until 8) {
+                    val a = i * 45.0 * PI / 180.0
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.8f),
+                        start = Offset(c.x + (r * 0.65f * cos(a)).toFloat(), c.y + (r * 0.65f * sin(a)).toFloat()),
+                        end = Offset(c.x + (r * cos(a)).toFloat(), c.y + (r * sin(a)).toFloat()),
+                        strokeWidth = 1.4.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+                drawLine(Color.White, c, Offset(c.x - 4.dp.toPx(), c.y - 3.dp.toPx()), 1.8.dp.toPx(), StrokeCap.Round)
+                drawLine(Color.White, c, Offset(c.x + 6.dp.toPx(), c.y - 4.dp.toPx()), 1.4.dp.toPx(), StrokeCap.Round)
+                drawCircle(GlyphRedDot, 2.dp.toPx(), c)
             }
         }
         else -> Unit

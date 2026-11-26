@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,17 +29,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,8 +67,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.catalog.WallpaperCatalog
-import com.example.engine.performance.PreloadPriority
-import com.example.engine.performance.ZeroLagPerformanceEngine
 import com.example.data.model.ColorFamily
 import com.example.data.model.DiscoveryCollection
 import com.example.data.model.ResolutionTier
@@ -66,10 +75,15 @@ import com.example.data.model.SearchSort
 import com.example.data.model.UiStyleMode
 import com.example.data.model.Wallpaper
 import com.example.data.model.WallpaperCategory
+import com.example.data.repository.OnDeviceWallpaperRepository
+import com.example.engine.performance.PreloadPriority
+import com.example.engine.performance.ZeroLagPerformanceEngine
 import com.example.ui.components.EmptyStatePanel
 import com.example.ui.components.TactileSurface
 import com.example.ui.components.WallpaperGridCard
 import com.example.ui.components.glassSpecularBorder
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.LocalUiStyleMode
 
 @Composable
@@ -98,13 +112,41 @@ fun ExploreSearchScreen(
     scrollToTopTick: Int = 0,
     onDeviceWallpapers: List<Wallpaper> = emptyList(),
     onOpenSettingsForOnDevice: (() -> Unit)? = null,
-    offlineWallpapers: List<Wallpaper> = emptyList()
+    offlineWallpapers: List<Wallpaper> = emptyList(),
+    curatedShelfEnabled: Boolean = false,
+    onToggleCuratedShelf: (Boolean) -> Unit = {},
+    deviceFolderUris: List<String> = emptyList(),
+    onAddDevicePhotos: (List<String>) -> Unit = {},
+    onAddDeviceFolder: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
-    var showOnDeviceOnly by remember { mutableStateOf(false) }
+    val uiStyle = LocalUiStyleMode.current
+    val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(20)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            uris.forEach { OnDeviceWallpaperRepository.takePersistableReadPermission(context, it, isTree = false) }
+            onAddDevicePhotos(uris.map { it.toString() })
+        }
+    }
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { treeUri ->
+        if (treeUri != null) {
+            OnDeviceWallpaperRepository.takePersistableReadPermission(context, treeUri, isTree = true)
+            onAddDeviceFolder(treeUri.toString())
+        }
+    }
+
     var showOfflineOnly by remember { mutableStateOf(false) }
-    val displayedResults = remember(showOnDeviceOnly, showOfflineOnly, onDeviceWallpapers, offlineWallpapers, results, filters.query) {
+    val showCuratedMode = curatedShelfEnabled || filters != SearchFilters()
+    var showOnDeviceOnly by remember(showCuratedMode) { mutableStateOf(!showCuratedMode) }
+
+    val displayedResults = remember(showOnDeviceOnly, showOfflineOnly, showCuratedMode, onDeviceWallpapers, offlineWallpapers, results, filters.query) {
         val q = filters.query.trim().lowercase()
         when {
             showOfflineOnly -> {
@@ -113,7 +155,7 @@ fun ExploreSearchScreen(
                     wp.title.lowercase().contains(q) || wp.category.displayName.lowercase().contains(q)
                 }
             }
-            showOnDeviceOnly -> {
+            !showCuratedMode || showOnDeviceOnly -> {
                 if (q.isEmpty()) onDeviceWallpapers
                 else onDeviceWallpapers.filter { wp ->
                     wp.title.lowercase().contains(q) || wp.creatorName.lowercase().contains(q)
@@ -122,8 +164,7 @@ fun ExploreSearchScreen(
             else -> results
         }
     }
-    val hasActiveFilter = filters != SearchFilters() || showOnDeviceOnly || showOfflineOnly
-    val isGlass = LocalUiStyleMode.current == UiStyleMode.FROSTED_GLASS_OS
+    val hasActiveFilter = filters != SearchFilters() || showOfflineOnly
     val chipColors = FilterChipDefaults.filterChipColors(
         containerColor = if (isGlass) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.86f)
         else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -168,13 +209,31 @@ fun ExploreSearchScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (isGlyph) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(GlyphRedDot)
+                        )
+                    }
+                    Text(
+                        text = if (isGlyph) "EXPLORE & FOLDERS" else "Explore & Folders",
+                        fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
                 Text(
-                    text = "Explore & Search",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${WallpaperCatalog.allWallpapers.size} curated wallpapers",
+                    text = if (showCuratedMode) {
+                        "${onDeviceWallpapers.size} device photos • ${WallpaperCatalog.allWallpapers.size} curated canvases"
+                    } else {
+                        "${onDeviceWallpapers.size} device photos • ${deviceFolderUris.size} linked folders"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -230,245 +289,106 @@ fun ExploreSearchScreen(
                             .testTag("explore_search_input")
                     )
                 }
-            }
-        }
 
-        // Suggestions & Recent Searches
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (recentSearches.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Recent Searches",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        TextButton(onClick = onClearHistory) {
-                            Text("Clear")
-                        }
-                    }
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(recentSearches) { item ->
-                            FilterChip(
-                                selected = filters.query.equals(item, ignoreCase = true),
-                                onClick = {
-                                    onQueryChange(item)
-                                    onCommitSearch(item)
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.History,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                label = { Text(item) },
-                                colors = chipColors,
-                                shape = RoundedCornerShape(50)
-                            )
-                        }
-                    }
-                }
-
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Device Folders & Toggleable 100-Wallpaper Curated Online Shelf Card
+                TactileSurface(
+                    shape = RoundedCornerShape(22.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("explore_source_controls_card")
                 ) {
-                    items(WallpaperCatalog.searchSuggestions) { suggestion ->
-                        FilterChip(
-                            selected = filters.query.equals(suggestion, ignoreCase = true),
-                            onClick = {
-                                onQueryChange(suggestion)
-                                onCommitSearch(suggestion)
-                            },
-                            label = { Text(suggestion) },
-                            colors = chipColors,
-                            shape = RoundedCornerShape(50)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Resolution & Mode Filter Chips
-        item {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    FilterChip(
-                        selected = filters.resolutionTier == ResolutionTier.UHD_4K,
-                        onClick = {
-                            onSelectResolution(
-                                if (filters.resolutionTier == ResolutionTier.UHD_4K) null else ResolutionTier.UHD_4K
-                            )
-                        },
-                        label = { Text("4K") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_4k")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.resolutionTier == ResolutionTier.QHD_1440,
-                        onClick = {
-                            onSelectResolution(
-                                if (filters.resolutionTier == ResolutionTier.QHD_1440) null else ResolutionTier.QHD_1440
-                            )
-                        },
-                        label = { Text("2K QHD") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_qhd")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.resolutionTier == ResolutionTier.FHD_1080,
-                        onClick = {
-                            onSelectResolution(
-                                if (filters.resolutionTier == ResolutionTier.FHD_1080) null else ResolutionTier.FHD_1080
-                            )
-                        },
-                        label = { Text("Full HD") },
-                        colors = chipColors
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.amoledOnly,
-                        onClick = onToggleAmoled,
-                        label = { Text("AMOLED") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_amoled")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.portraitOnly,
-                        onClick = onTogglePortrait,
-                        label = { Text("Portrait") },
-                        colors = chipColors
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.depthStudioOnly,
-                        onClick = onToggleDepthStudio,
-                        label = { Text("Depth Studio") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_depth")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = showOfflineOnly,
-                        onClick = {
-                            showOfflineOnly = !showOfflineOnly
-                            if (showOfflineOnly) showOnDeviceOnly = false
-                        },
-                        label = { Text("Offline (${offlineWallpapers.size})") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_offline")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = showOnDeviceOnly,
-                        onClick = {
-                            showOnDeviceOnly = !showOnDeviceOnly
-                            if (showOnDeviceOnly) showOfflineOnly = false
-                        },
-                        label = { Text("On Device (${onDeviceWallpapers.size})") },
-                        colors = chipColors,
-                        modifier = Modifier.testTag("filter_on_device")
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.sort == SearchSort.RECENTLY_ADDED,
-                        onClick = {
-                            onSelectSort(
-                                if (filters.sort == SearchSort.RECENTLY_ADDED) SearchSort.RELEVANT
-                                else SearchSort.RECENTLY_ADDED
-                            )
-                        },
-                        label = { Text("Recently Added") },
-                        colors = chipColors
-                    )
-                }
-                item {
-                    FilterChip(
-                        selected = filters.sort == SearchSort.MOST_POPULAR,
-                        onClick = {
-                            onSelectSort(
-                                if (filters.sort == SearchSort.MOST_POPULAR) SearchSort.RELEVANT
-                                else SearchSort.MOST_POPULAR
-                            )
-                        },
-                        label = { Text("Most Popular") },
-                        colors = chipColors
-                    )
-                }
-            }
-        }
-
-        // Intelligent Colour Discovery
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Colour Discovery",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(ColorFamily.entries) { colorFamily ->
-                        val selected = filters.colorFamily == colorFamily
-                        val swatchText = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                        Surface(
-                            color = if (selected) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isGlass) 0.86f else 1f),
-                            contentColor = swatchText,
-                            shape = RoundedCornerShape(20.dp),
-                            border = glassSpecularBorder(),
-                            tonalElevation = if (isGlass) 0.dp else if (selected) 3.dp else 1.dp,
-                            shadowElevation = if (isGlass) 4.dp else 0.dp,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable {
-                                    onSelectColor(if (selected) null else colorFamily)
-                                }
-                                .testTag("color_filter_${colorFamily.name}")
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(colorFamily.swatchHex))
-                                )
-                                Text(
-                                    text = colorFamily.label,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = swatchText
-                                )
+                                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Column {
+                                    Text(
+                                        text = "Curated Online Shelf (${WallpaperCatalog.allWallpapers.size})",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = if (curatedShelfEnabled) "Showing curated wallpapers alongside device folders"
+                                        else "Toggle to browse ${WallpaperCatalog.allWallpapers.size} curated wallpapers",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = curatedShelfEnabled,
+                                onCheckedChange = { enabled ->
+                                    onToggleCuratedShelf(enabled)
+                                    showOnDeviceOnly = !enabled
+                                    showOfflineOnly = false
+                                },
+                                modifier = Modifier.testTag("explore_curated_shelf_toggle")
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = { folderPickerLauncher.launch(null) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("explore_add_folder_button")
+                            ) {
+                                Icon(Icons.Rounded.CreateNewFolder, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Add Folder", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("explore_pick_photos_button")
+                            ) {
+                                Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Pick Photos", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+
+                        if (deviceFolderUris.isNotEmpty()) {
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(deviceFolderUris) { folderUri ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        shape = RoundedCornerShape(50),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.FolderCopy, contentDescription = null, modifier = Modifier.size(13.dp))
+                                            Text(
+                                                text = OnDeviceWallpaperRepository.formatUriLabel(folderUri),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -476,90 +396,335 @@ fun ExploreSearchScreen(
             }
         }
 
-        // Curated Discovery Collections
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Collections",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                val quickCollections = listOf(
-                    DiscoveryCollection.FEATURED,
-                    DiscoveryCollection.TRENDING,
-                    DiscoveryCollection.DEPTH_STUDIO,
-                    DiscoveryCollection.AMOLED,
-                    DiscoveryCollection.ULTRA_HD_4K,
-                    DiscoveryCollection.EDITORS_PICKS,
-                    DiscoveryCollection.NEW_ARRIVALS,
-                    DiscoveryCollection.PHOTOGRAPHY
-                )
+        if (showCuratedMode) {
+            // Suggestions & Recent Searches
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (recentSearches.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recent Searches",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            TextButton(onClick = onClearHistory) {
+                                Text("Clear")
+                            }
+                        }
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(recentSearches) { item ->
+                                FilterChip(
+                                    selected = filters.query.equals(item, ignoreCase = true),
+                                    onClick = {
+                                        onQueryChange(item)
+                                        onCommitSearch(item)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.History,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    },
+                                    label = { Text(item) },
+                                    colors = chipColors,
+                                    shape = RoundedCornerShape(50)
+                                )
+                            }
+                        }
+                    }
+
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(WallpaperCatalog.searchSuggestions) { suggestion ->
+                            FilterChip(
+                                selected = filters.query.equals(suggestion, ignoreCase = true),
+                                onClick = {
+                                    onQueryChange(suggestion)
+                                    onCommitSearch(suggestion)
+                                },
+                                label = { Text(suggestion) },
+                                colors = chipColors,
+                                shape = RoundedCornerShape(50)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Resolution & Mode Filter Chips
+            item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(quickCollections) { col ->
-                        val selected = filters.collection == col
+                    item {
                         FilterChip(
-                            selected = selected,
-                            onClick = { onSelectCollection(if (selected) null else col) },
-                            label = { Text(col.title) },
+                            selected = filters.resolutionTier == ResolutionTier.UHD_4K,
+                            onClick = {
+                                onSelectResolution(
+                                    if (filters.resolutionTier == ResolutionTier.UHD_4K) null else ResolutionTier.UHD_4K
+                                )
+                            },
+                            label = { Text("4K") },
                             colors = chipColors,
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.testTag("collection_chip_${col.name}")
+                            modifier = Modifier.testTag("filter_4k")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.resolutionTier == ResolutionTier.QHD_1440,
+                            onClick = {
+                                onSelectResolution(
+                                    if (filters.resolutionTier == ResolutionTier.QHD_1440) null else ResolutionTier.QHD_1440
+                                )
+                            },
+                            label = { Text("2K QHD") },
+                            colors = chipColors,
+                            modifier = Modifier.testTag("filter_qhd")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.resolutionTier == ResolutionTier.FHD_1080,
+                            onClick = {
+                                onSelectResolution(
+                                    if (filters.resolutionTier == ResolutionTier.FHD_1080) null else ResolutionTier.FHD_1080
+                                )
+                            },
+                            label = { Text("Full HD") },
+                            colors = chipColors
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.amoledOnly,
+                            onClick = onToggleAmoled,
+                            label = { Text("AMOLED") },
+                            colors = chipColors,
+                            modifier = Modifier.testTag("filter_amoled")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.portraitOnly,
+                            onClick = onTogglePortrait,
+                            label = { Text("Portrait") },
+                            colors = chipColors
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.depthStudioOnly,
+                            onClick = onToggleDepthStudio,
+                            label = { Text("Depth Studio") },
+                            colors = chipColors,
+                            modifier = Modifier.testTag("filter_depth")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = showOfflineOnly,
+                            onClick = {
+                                showOfflineOnly = !showOfflineOnly
+                                if (showOfflineOnly) showOnDeviceOnly = false
+                            },
+                            label = { Text("Offline (${offlineWallpapers.size})") },
+                            colors = chipColors,
+                            modifier = Modifier.testTag("filter_offline")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = showOnDeviceOnly,
+                            onClick = {
+                                showOnDeviceOnly = !showOnDeviceOnly
+                                if (showOnDeviceOnly) showOfflineOnly = false
+                            },
+                            label = { Text("On Device (${onDeviceWallpapers.size})") },
+                            colors = chipColors,
+                            modifier = Modifier.testTag("filter_on_device")
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.sort == SearchSort.RECENTLY_ADDED,
+                            onClick = {
+                                onSelectSort(
+                                    if (filters.sort == SearchSort.RECENTLY_ADDED) SearchSort.RELEVANT
+                                    else SearchSort.RECENTLY_ADDED
+                                )
+                            },
+                            label = { Text("Recently Added") },
+                            colors = chipColors
+                        )
+                    }
+                    item {
+                        FilterChip(
+                            selected = filters.sort == SearchSort.MOST_POPULAR,
+                            onClick = {
+                                onSelectSort(
+                                    if (filters.sort == SearchSort.MOST_POPULAR) SearchSort.RELEVANT
+                                    else SearchSort.MOST_POPULAR
+                                )
+                            },
+                            label = { Text("Most Popular") },
+                            colors = chipColors
                         )
                     }
                 }
             }
-        }
 
-        // Category Visual Cards
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Browse Categories",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(WallpaperCategory.entries) { cat ->
-                        val selected = filters.category == cat
-                        val catTitleColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
-                        val catSubColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
-                        Surface(
-                            color = if (selected) MaterialTheme.colorScheme.secondaryContainer
-                            else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isGlass) 0.86f else 1f),
-                            contentColor = catTitleColor,
-                            shape = RoundedCornerShape(22.dp),
-                            border = glassSpecularBorder(),
-                            modifier = Modifier
-                                .width(156.dp)
-                                .clip(RoundedCornerShape(22.dp))
-                                .clickable { onSelectCategory(if (selected) null else cat) }
-                                .testTag("category_card_${cat.name}")
-                        ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
-                                Text(
-                                    text = cat.displayName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = catTitleColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = cat.tagline,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = catSubColor,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+            // Intelligent Colour Discovery
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Colour Discovery",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(ColorFamily.entries) { colorFamily ->
+                            val selected = filters.colorFamily == colorFamily
+                            val swatchText = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                            Surface(
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isGlass) 0.86f else 1f),
+                                contentColor = swatchText,
+                                shape = RoundedCornerShape(20.dp),
+                                border = glassSpecularBorder(),
+                                tonalElevation = if (isGlass) 0.dp else if (selected) 3.dp else 1.dp,
+                                shadowElevation = if (isGlass) 4.dp else 0.dp,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        onSelectColor(if (selected) null else colorFamily)
+                                    }
+                                    .testTag("color_filter_${colorFamily.name}")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(colorFamily.swatchHex))
+                                    )
+                                    Text(
+                                        text = colorFamily.label,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = swatchText
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Curated Discovery Collections
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Collections",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    val quickCollections = listOf(
+                        DiscoveryCollection.FEATURED,
+                        DiscoveryCollection.TRENDING,
+                        DiscoveryCollection.DEPTH_STUDIO,
+                        DiscoveryCollection.AMOLED,
+                        DiscoveryCollection.ULTRA_HD_4K,
+                        DiscoveryCollection.EDITORS_PICKS,
+                        DiscoveryCollection.NEW_ARRIVALS,
+                        DiscoveryCollection.PHOTOGRAPHY
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(quickCollections) { col ->
+                            val selected = filters.collection == col
+                            FilterChip(
+                                selected = selected,
+                                onClick = { onSelectCollection(if (selected) null else col) },
+                                label = { Text(col.title) },
+                                colors = chipColors,
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.testTag("collection_chip_${col.name}")
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Category Visual Cards
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Browse Categories",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(WallpaperCategory.entries) { cat ->
+                            val selected = filters.category == cat
+                            val catTitleColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                            val catSubColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant
+                            Surface(
+                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = if (isGlass) 0.86f else 1f),
+                                contentColor = catTitleColor,
+                                shape = RoundedCornerShape(22.dp),
+                                border = glassSpecularBorder(),
+                                modifier = Modifier
+                                    .width(156.dp)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .clickable { onSelectCategory(if (selected) null else cat) }
+                                    .testTag("category_card_${cat.name}")
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text(
+                                        text = cat.displayName,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = catTitleColor,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = cat.tagline,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = catSubColor,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -579,7 +744,7 @@ fun ExploreSearchScreen(
                 val activeLabel = buildString {
                     append("${displayedResults.size} wallpapers")
                     if (showOfflineOnly) append(" • Offline")
-                    if (showOnDeviceOnly) append(" • On Device")
+                    if (!showCuratedMode || showOnDeviceOnly) append(" • Device Folders")
                     filters.collection?.let { append(" • ${it.title}") }
                     filters.category?.let { append(" • ${it.displayName}") }
                     filters.colorFamily?.let { append(" • ${it.label}") }
@@ -592,7 +757,7 @@ fun ExploreSearchScreen(
                 if (hasActiveFilter) {
                     TextButton(
                         onClick = {
-                            showOnDeviceOnly = false
+                            showOnDeviceOnly = !showCuratedMode
                             showOfflineOnly = false
                             onResetFilters()
                         },
@@ -610,26 +775,29 @@ fun ExploreSearchScreen(
                     EmptyStatePanel(
                         title = when {
                             showOfflineOnly -> "No offline wallpapers downloaded"
-                            showOnDeviceOnly -> "No On-Device photos added"
+                            !showCuratedMode || showOnDeviceOnly -> "No device folders or photos added yet"
                             else -> "No matching canvases"
                         },
                         subtitle = when {
-                            showOfflineOnly -> "Download an Offline Wallpaper Pack during onboarding or in Studio Settings so canvases remain visible offline."
-                            showOnDeviceOnly -> "Select photos or add folders in Settings → On Device Collection without broad storage permissions."
+                            showOfflineOnly -> "Download an Offline Wallpaper Pack in Studio Settings so canvases remain visible offline."
+                            !showCuratedMode || showOnDeviceOnly -> "Tap Add Folder or Pick Photos above to import local wallpapers, or toggle Curated Online Shelf to browse ${WallpaperCatalog.allWallpapers.size} curated artworks."
                             filters.query.isNotBlank() -> "No artwork matched \"${filters.query.trim()}\". Clear the query or reset filters to browse all ${WallpaperCatalog.allWallpapers.size} canvases."
                             else -> "Try clearing a resolution or color filter to explore all ${WallpaperCatalog.allWallpapers.size} wallpapers."
                         },
                         actionLabel = when {
-                            (showOnDeviceOnly || showOfflineOnly) && onOpenSettingsForOnDevice != null -> "Open Studio Settings"
+                            !showCuratedMode -> "Add Folder"
+                            showOnDeviceOnly && onOpenSettingsForOnDevice != null -> "Open Studio Settings"
                             else -> "Reset all filters"
                         },
                         onAction = {
-                            if ((showOnDeviceOnly || showOfflineOnly) && onOpenSettingsForOnDevice != null) {
-                                onOpenSettingsForOnDevice()
-                            } else {
-                                showOnDeviceOnly = false
-                                showOfflineOnly = false
-                                onResetFilters()
+                            when {
+                                !showCuratedMode -> folderPickerLauncher.launch(null)
+                                (showOnDeviceOnly || showOfflineOnly) && onOpenSettingsForOnDevice != null -> onOpenSettingsForOnDevice()
+                                else -> {
+                                    showOnDeviceOnly = false
+                                    showOfflineOnly = false
+                                    onResetFilters()
+                                }
                             }
                         }
                     )

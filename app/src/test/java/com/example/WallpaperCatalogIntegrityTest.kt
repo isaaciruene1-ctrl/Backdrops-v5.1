@@ -25,15 +25,15 @@ class WallpaperCatalogIntegrityTest {
     )
 
     @Test
-    fun catalogHasExactly3100UniqueWallpapersWithLiveMultiCdnUrls() {
+    fun catalogHasExactly100UniqueWallpapersWithLiveMultiCdnUrls() {
         val all = WallpaperCatalog.allWallpapers
-        assertEquals(3100, all.size)
+        assertEquals(WallpaperCatalog.TARGET_CATALOG_SIZE, all.size)
 
         val uniqueIds = all.map { it.id }.toHashSet()
-        assertEquals("Every wallpaper ID must be unique", 3100, uniqueIds.size)
+        assertEquals("Every wallpaper ID must be unique", WallpaperCatalog.TARGET_CATALOG_SIZE, uniqueIds.size)
 
         val uniqueThumbs = all.map { it.thumbnailUrl }.toHashSet()
-        assertEquals("Every wallpaper thumbnail URL must be unique", 3100, uniqueThumbs.size)
+        assertEquals("Every wallpaper thumbnail URL must be unique", WallpaperCatalog.TARGET_CATALOG_SIZE, uniqueThumbs.size)
 
         for (wp in all) {
             assertFalse("Bundled/procedural URI must not appear for ${wp.id}", wp.thumbnailUrl.startsWith("procedural://"))

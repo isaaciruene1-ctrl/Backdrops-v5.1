@@ -107,14 +107,19 @@ import com.example.data.model.GlowMaterialConfig
 import com.example.data.model.ImageQualityPref
 import com.example.data.model.LiquidGlassTier
 import com.example.data.model.MaterialNavStyle
+import com.example.data.model.MediaPlayerSizeTier
 import com.example.data.model.OfflinePackSizeOption
 import com.example.data.model.ThemeMode
 import com.example.data.model.UiStyleMode
 import com.example.data.model.UserPreferencesDoc
+import com.example.data.model.WallpaperMotionMode
 import com.example.ui.components.BackdropLogoMark
+import com.example.ui.components.StudioOptionPill
 import com.example.ui.components.TactileSurface
 import com.example.ui.components.glassSpecularBorder
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalUiStyleMode
 import java.util.Locale
@@ -183,7 +188,12 @@ fun SettingsPanelScreen(
     onStartOfflinePack: (OfflinePackSizeOption) -> Unit = {},
     onPauseOfflinePack: () -> Unit = {},
     onCancelOfflinePack: () -> Unit = {},
-    onClearOfflinePack: () -> Unit = {}
+    onClearOfflinePack: () -> Unit = {},
+    // Backdrop V2 Lock & Explore Preferences
+    onExploreCuratedShelfChange: (Boolean) -> Unit = {},
+    onGlancePillEnabledChange: (Boolean) -> Unit = {},
+    onMediaPlayerSizeTierChange: (MediaPlayerSizeTier) -> Unit = {},
+    onWallpaperMotionModeChange: (WallpaperMotionMode) -> Unit = {}
 ) {
     val isGlass = LocalUiStyleMode.current == UiStyleMode.FROSTED_GLASS_OS
     var showRestoreConfirm by remember { mutableStateOf(false) }
@@ -495,11 +505,80 @@ fun SettingsPanelScreen(
                     }
                 }
 
+                // Backdrop V2 Explore & Lock Screen Quick Controls
+                item {
+                    CollapsibleSettingsDrawerCard(
+                        title = "Backdrop V2 Lock & Explore",
+                        summary = "${if (preferences.exploreCuratedShelfEnabled) "Curated shelf ON" else "Folders default"} • ${preferences.parsedWallpaperMotionMode.label}",
+                        icon = Icons.Rounded.LockClock,
+                        testTag = "settings_drawer_v2_studio"
+                    ) {
+                        TactileSurface(
+                            shape = RoundedCornerShape(28.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SettingsSwitchRow(
+                                    icon = Icons.Rounded.Layers,
+                                    title = "Show Curated Shelf in Explore",
+                                    subtitle = "Reveal the 100-wallpaper curated shelf alongside device folders",
+                                    checked = preferences.exploreCuratedShelfEnabled,
+                                    onCheckedChange = onExploreCuratedShelfChange,
+                                    tag = "settings_curated_shelf_switch"
+                                )
+                                SettingsSwitchRow(
+                                    icon = Icons.Rounded.AutoAwesome,
+                                    title = "Backdrop Glance Pill",
+                                    subtitle = "3D-flippable bottom lock summary & embedded music controls",
+                                    checked = preferences.glancePillEnabled,
+                                    onCheckedChange = onGlancePillEnabledChange,
+                                    tag = "settings_glance_pill_switch"
+                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Media Player Size Tier",
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        items(MediaPlayerSizeTier.entries) { tier ->
+                                            StudioOptionPill(
+                                                label = tier.label,
+                                                selected = preferences.parsedMediaPlayerSizeTier == tier,
+                                                onClick = { onMediaPlayerSizeTierChange(tier) },
+                                                modifier = Modifier.testTag("settings_media_tier_${tier.name}")
+                                            )
+                                        }
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Lock Wallpaper Motion",
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        items(WallpaperMotionMode.entries) { mode ->
+                                            StudioOptionPill(
+                                                label = mode.label,
+                                                selected = preferences.parsedWallpaperMotionMode == mode,
+                                                onClick = { onWallpaperMotionModeChange(mode) },
+                                                modifier = Modifier.testTag("settings_motion_mode_${mode.name}")
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Pinned bottom-most section across all screen sizes: Storage, Tutorial & Defaults
                 item {
                     CollapsibleSettingsDrawerCard(
                         title = "Storage, Tutorial & Defaults",
-                        summary = "Backdrop 1.5 • $cacheLabel cache",
+                        summary = "Backdrop V2 • $cacheLabel cache",
                         icon = Icons.Rounded.CleaningServices,
                         testTag = "settings_drawer_storage_about"
                     ) {
@@ -894,44 +973,88 @@ private fun InterfaceStyleSwitcherCard(
                 }
             }
 
-            // Dynamic Theming toggle + Accent Swatches when Dynamic Theming is OFF
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Rounded.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column {
-                        Text("Dynamic Theming", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            "Sync palette to wallpaper",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Switch(
-                    checked = preferences.dynamicThemingEnabled,
-                    onCheckedChange = onDynamicThemingChange,
-                    modifier = Modifier.testTag("settings_dynamic_theming_switch")
-                )
-            }
-
             AnimatedVisibility(
-                visible = !preferences.dynamicThemingEnabled,
+                visible = currentStyle == UiStyleMode.GLYPH_UI,
                 enter = AppMotion.drawerEnter(currentStyle, reducedMotion),
                 exit = AppMotion.drawerExit(currentStyle, reducedMotion)
             ) {
-                CustomDynamicColorPickerCard(
-                    selectedHex = preferences.customAccentHex,
-                    onSelectHex = onCustomAccentChange
-                )
+                TactileSurface(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_glyph_ui_panel")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(GlyphRedDot)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "GLYPH UI ARCHITECTURE",
+                                fontFamily = DotGothicFontFamily,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Monochrome surfaces, 1dp hairline borders, DotGothic display type, stepped motion & #D92B2B signal accents.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (currentStyle != UiStyleMode.GLYPH_UI) {
+                // Dynamic Theming toggle + Accent Swatches when Dynamic Theming is OFF
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Rounded.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Column {
+                            Text("Dynamic Theming", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Sync palette to wallpaper",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = preferences.dynamicThemingEnabled,
+                        onCheckedChange = onDynamicThemingChange,
+                        modifier = Modifier.testTag("settings_dynamic_theming_switch")
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = !preferences.dynamicThemingEnabled,
+                    enter = AppMotion.drawerEnter(currentStyle, reducedMotion),
+                    exit = AppMotion.drawerExit(currentStyle, reducedMotion)
+                ) {
+                    CustomDynamicColorPickerCard(
+                        selectedHex = preferences.customAccentHex,
+                        onSelectHex = onCustomAccentChange
+                    )
+                }
             }
         }
     }
@@ -990,8 +1113,8 @@ private fun AppearanceLayoutCard(
                 }
             }
 
-            // Navigation Bar Position works in both M3 & Frosted Glass OS; M3 Navigation Bar Style is M3-exclusive
-            val isGlassStyle = preferences.parsedUiStyle == UiStyleMode.FROSTED_GLASS_OS
+            // Navigation Bar Position works across all 3 styles; M3 Navigation Bar Style is M3-exclusive
+            val hideM3NavStyles = preferences.parsedUiStyle != UiStyleMode.MATERIAL_3
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -999,7 +1122,7 @@ private fun AppearanceLayoutCard(
                 ) {
                     Icon(Icons.Rounded.Dock, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(
-                        text = if (isGlassStyle) "Navigation Bar Position" else "Navigation Bar Position & Style",
+                        text = if (hideM3NavStyles) "Navigation Bar Position" else "Navigation Bar Position & Style",
                         style = MaterialTheme.typography.titleSmall
                     )
                 }
@@ -1020,7 +1143,7 @@ private fun AppearanceLayoutCard(
                         }
                     }
                 }
-                if (!isGlassStyle) {
+                if (!hideM3NavStyles) {
                     SingleChoiceSegmentedButtonRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1348,12 +1471,12 @@ private fun StorageAboutCard(
                 BackdropLogoMark(size = 28.dp)
                 Column {
                     Text(
-                        text = "Backdrop 1.5 • $totalCount Canvases",
+                        text = "Backdrop V2 • $totalCount Curated Canvases",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "37 Clocks • 10 Studio Fonts • Depth Engine V5 • 22 Widgets",
+                        text = "39 Clocks • 3 Design Systems • Depth Engine V5 • 22+ Widgets",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1486,49 +1609,85 @@ private fun UiStyleOptionCard(
                     )
                     .padding(8.dp)
             ) {
-                if (mode == UiStyleMode.MATERIAL_3) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .height(16.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(14.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        )
+                when (mode) {
+                    UiStyleMode.MATERIAL_3 -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.7f)
+                                    .height(16.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(14.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            )
+                        }
                     }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            modifier = Modifier
-                                .fillMaxWidth(0.75f)
-                                .height(18.dp)
-                                .align(Alignment.Start)
-                        ) {}
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
-                            shape = CircleShape,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            modifier = Modifier
-                                .fillMaxWidth(0.88f)
-                                .height(16.dp)
-                        ) {}
+                    UiStyleMode.FROSTED_GLASS_OS -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.75f)
+                                    .height(18.dp)
+                                    .align(Alignment.Start)
+                            ) {}
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.85f),
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.88f)
+                                    .height(16.dp)
+                            ) {}
+                        }
+                    }
+                    UiStyleMode.GLYPH_UI -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "12:00",
+                                    fontFamily = DotGothicFontFamily,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(GlyphRedDot)
+                                )
+                            }
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                shape = RoundedCornerShape(50),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(14.dp)
+                            ) {}
+                        }
                     }
                 }
             }

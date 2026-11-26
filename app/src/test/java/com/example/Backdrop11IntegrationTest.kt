@@ -342,7 +342,7 @@ class Backdrop11IntegrationTest {
             }
         }
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("1.4").assertIsDisplayed()
+        composeRule.onNodeWithText("2.0").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("developer_credit_card"))
         composeRule.waitForIdle()
         repeat(10) {

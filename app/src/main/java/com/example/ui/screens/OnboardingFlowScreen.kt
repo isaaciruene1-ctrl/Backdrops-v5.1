@@ -119,21 +119,21 @@ fun OnboardingFlowScreen(
             ),
             TutorialCardSpec(
                 icon = Icons.Rounded.LockClock,
-                title = "8 Brand Lock Notification Presets",
-                body = "Style lock notifications after leading mobile themes alongside bottom drag-to-expand and bottom port charging glow.",
-                highlight = "Lock Screen Mode 1.5"
+                title = "Lock Screen Studio & Glance Pill",
+                body = "Edit clocks, widgets & corner shortcuts directly over a live preview, with swipeable 3D Glance cards and 5 charging styles.",
+                highlight = "Backdrop V2 Lock Studio"
             ),
             TutorialCardSpec(
                 icon = Icons.Rounded.AutoAwesome,
-                title = "10 Studio Fonts, Glow & Liquid Glass Tiers",
-                body = "Customize typography across the app, shape luminous clock glow edges, and tune hardware-matched Liquid Glass shader tiers.",
-                highlight = "V5 Multi-Engine Architecture"
+                title = "Three UI Systems: M3, Frosted & Glyph",
+                body = "Switch effortlessly between Pixel Material 3, optical Frosted Glass OS, and monochrome dot-matrix Glyph UI.",
+                highlight = "3 Independent Design Systems"
             ),
             TutorialCardSpec(
                 icon = Icons.Rounded.Widgets,
-                title = "22 Home & Lock Widgets",
-                body = "Pin live World Clock, Focus Timer, Habit Streak, Step Counter, Compass, Network Speed & Weather widgets inside Lock Screen Mode and on Home.",
-                highlight = "22-Widget Suite"
+                title = "Device Folders & Offline Packs",
+                body = "Organize your own device folders with zero broad storage permissions, plus optional 25/50/100 offline packs and 22+ widgets.",
+                highlight = "Personal & Private Hub"
             )
         )
     }
@@ -357,7 +357,7 @@ fun OnboardingFlowScreen(
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Text(
-                                text = "What's Inside Backdrop 1.5",
+                                text = "What's Inside Backdrop V2",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold
                             )

@@ -89,6 +89,7 @@ import com.example.data.model.LockCredentialHasher
 import com.example.data.model.LockCredentialType
 import com.example.data.model.UiStyleMode
 import com.example.data.model.UserPreferencesDoc
+import com.example.ui.theme.DotGothicFontFamily
 import com.example.ui.theme.LocalUiStyleMode
 import com.example.ui.theme.rememberStudioHaptics
 import kotlinx.coroutines.launch
@@ -104,6 +105,7 @@ internal fun LockScreenCredentialGate(
 ) {
     val uiStyle = LocalUiStyleMode.current
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
     val haptics = rememberStudioHaptics()
     val scope = rememberCoroutineScope()
 
@@ -167,10 +169,18 @@ internal fun LockScreenCredentialGate(
         ) {
             Surface(
                 shape = RoundedCornerShape(50),
-                color = if (isGlass) Color.White.copy(alpha = 0.14f) else Color(0xFF47310A).copy(alpha = 0.55f),
+                color = when {
+                    isGlyph -> Color(0xFF141414)
+                    isGlass -> Color.White.copy(alpha = 0.14f)
+                    else -> Color(0xFF47310A).copy(alpha = 0.55f)
+                },
                 border = BorderStroke(
                     1.dp,
-                    if (isGlass) Color.White.copy(alpha = 0.30f) else Color(0xFFFFCA62).copy(alpha = 0.45f)
+                    when {
+                        isGlyph -> Color.White.copy(alpha = 0.28f)
+                        isGlass -> Color.White.copy(alpha = 0.30f)
+                        else -> Color(0xFFFFCA62).copy(alpha = 0.45f)
+                    }
                 )
             ) {
                 Row(
@@ -281,6 +291,7 @@ internal fun LockScreenCredentialGate(
                 // 3x4 PIN Keypad
                 UiSpecificPinKeypad(
                     isGlass = isGlass,
+                    isGlyph = isGlyph,
                     canSubmit = entered.length >= 4,
                     keySize = keySize,
                     rowSpacing = rowSpacing,
@@ -318,10 +329,24 @@ internal fun LockScreenCredentialGate(
         } else {
             // Password Unlock Card
             Surface(
-                shape = RoundedCornerShape(if (isGlass) 30.dp else 24.dp),
-                color = if (isGlass) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f),
-                border = if (isGlass) BorderStroke(1.1.dp, Color.White.copy(alpha = 0.34f)) else null,
-                tonalElevation = if (isGlass) 0.dp else 4.dp,
+                shape = RoundedCornerShape(
+                    when {
+                        isGlyph -> 20.dp
+                        isGlass -> 30.dp
+                        else -> 24.dp
+                    }
+                ),
+                color = when {
+                    isGlyph -> Color(0xFF121212)
+                    isGlass -> Color.White.copy(alpha = 0.14f)
+                    else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f)
+                },
+                border = when {
+                    isGlyph -> BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                    isGlass -> BorderStroke(1.1.dp, Color.White.copy(alpha = 0.34f))
+                    else -> null
+                },
+                tonalElevation = if (isGlass || isGlyph) 0.dp else 4.dp,
                 modifier = Modifier
                     .widthIn(max = 380.dp)
                     .fillMaxWidth()
@@ -331,7 +356,7 @@ internal fun LockScreenCredentialGate(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val primaryTextColor = if (isGlass) Color.White else MaterialTheme.colorScheme.onSurface
+                    val primaryTextColor = if (isGlass || isGlyph) Color.White else MaterialTheme.colorScheme.onSurface
                     OutlinedTextField(
                         value = entered,
                         onValueChange = {
@@ -357,11 +382,15 @@ internal fun LockScreenCredentialGate(
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(if (isGlyph) 14.dp else 18.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = primaryTextColor,
                             unfocusedTextColor = primaryTextColor,
-                            focusedBorderColor = if (isGlass) Color.White.copy(alpha = 0.65f) else MaterialTheme.colorScheme.primary,
+                            focusedBorderColor = when {
+                                isGlyph -> Color.White
+                                isGlass -> Color.White.copy(alpha = 0.65f)
+                                else -> MaterialTheme.colorScheme.primary
+                            },
                             unfocusedBorderColor = primaryTextColor.copy(alpha = 0.35f),
                             focusedLabelColor = primaryTextColor.copy(alpha = 0.85f),
                             unfocusedLabelColor = primaryTextColor.copy(alpha = 0.68f)
@@ -376,8 +405,16 @@ internal fun LockScreenCredentialGate(
                         enabled = entered.isNotEmpty(),
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isGlass) Color.White.copy(alpha = 0.88f) else MaterialTheme.colorScheme.primary,
-                            contentColor = if (isGlass) Color(0xFF10131C) else MaterialTheme.colorScheme.onPrimary
+                            containerColor = when {
+                                isGlyph -> Color.White
+                                isGlass -> Color.White.copy(alpha = 0.88f)
+                                else -> MaterialTheme.colorScheme.primary
+                            },
+                            contentColor = when {
+                                isGlyph -> Color.Black
+                                isGlass -> Color(0xFF10131C)
+                                else -> MaterialTheme.colorScheme.onPrimary
+                            }
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -414,6 +451,7 @@ internal fun LockScreenCredentialGate(
 @Composable
 private fun UiSpecificPinKeypad(
     isGlass: Boolean,
+    isGlyph: Boolean = false,
     canSubmit: Boolean,
     keySize: androidx.compose.ui.unit.Dp = 72.dp,
     rowSpacing: androidx.compose.ui.unit.Dp = 14.dp,
@@ -495,7 +533,7 @@ private fun UiSpecificPinKeypad(
                     )
 
                     val m3TonalFlash by animateFloatAsState(
-                        targetValue = if (!isGlass && isPressed) 1f else 0f,
+                        targetValue = if (!isGlass && !isGlyph && isPressed) 1f else 0f,
                         animationSpec = spring(dampingRatio = 0.72f, stiffness = 640f),
                         label = "m3_flash_$keyId"
                     )
@@ -517,56 +555,68 @@ private fun UiSpecificPinKeypad(
                             contentAlignment = Alignment.Center,
                             modifier = keyModifier
                                 .then(
-                                    if (isGlass) {
-                                        Modifier
-                                            .background(
-                                                Color.White.copy(
-                                                    alpha = if (isPressed) 0.30f else 0.12f + 0.14f * neighborGlow
+                                    when {
+                                        isGlyph -> {
+                                            Modifier
+                                                .background(if (isPressed) Color.White else Color(0xFF141414))
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = if (isPressed) Color.White else Color.White.copy(alpha = 0.28f),
+                                                    shape = CircleShape
                                                 )
-                                            )
-                                            .drawBehind {
-                                                if (isPressed || neighborGlow > 0.02f) {
-                                                    val origin = if (isPressed || pressedCenter == null || myCenter == null) {
-                                                        center
-                                                    } else {
-                                                        val dx = pressedCenter.x - myCenter.x
-                                                        val dy = pressedCenter.y - myCenter.y
-                                                        val len = hypot(dx, dy).coerceAtLeast(1f)
-                                                        Offset(
-                                                            x = center.x + (dx / len) * (size.width * 0.46f),
-                                                            y = center.y + (dy / len) * (size.height * 0.46f)
+                                        }
+                                        isGlass -> {
+                                            Modifier
+                                                .background(
+                                                    Color.White.copy(
+                                                        alpha = if (isPressed) 0.30f else 0.12f + 0.14f * neighborGlow
+                                                    )
+                                                )
+                                                .drawBehind {
+                                                    if (isPressed || neighborGlow > 0.02f) {
+                                                        val origin = if (isPressed || pressedCenter == null || myCenter == null) {
+                                                            center
+                                                        } else {
+                                                            val dx = pressedCenter.x - myCenter.x
+                                                            val dy = pressedCenter.y - myCenter.y
+                                                            val len = hypot(dx, dy).coerceAtLeast(1f)
+                                                            Offset(
+                                                                x = center.x + (dx / len) * (size.width * 0.46f),
+                                                                y = center.y + (dy / len) * (size.height * 0.46f)
+                                                            )
+                                                        }
+                                                        val intensity = if (isPressed) 0.65f else neighborGlow * 0.55f
+                                                        drawCircle(
+                                                            brush = Brush.radialGradient(
+                                                                colors = listOf(
+                                                                    Color.White.copy(alpha = intensity),
+                                                                    Color(0xFFCDE6FF).copy(alpha = intensity * 0.45f),
+                                                                    Color.Transparent
+                                                                ),
+                                                                center = origin,
+                                                                radius = size.minDimension * 1.15f
+                                                            )
                                                         )
                                                     }
-                                                    val intensity = if (isPressed) 0.65f else neighborGlow * 0.55f
-                                                    drawCircle(
-                                                        brush = Brush.radialGradient(
-                                                            colors = listOf(
-                                                                Color.White.copy(alpha = intensity),
-                                                                Color(0xFFCDE6FF).copy(alpha = intensity * 0.45f),
-                                                                Color.Transparent
-                                                            ),
-                                                            center = origin,
-                                                            radius = size.minDimension * 1.15f
-                                                        )
-                                                    )
                                                 }
-                                            }
-                                            .border(
-                                                width = if (isPressed) 1.5.dp else (1.0f + 0.45f * neighborGlow).dp,
-                                                color = Color.White.copy(
-                                                    alpha = if (isPressed) 0.75f else (0.24f + 0.48f * neighborGlow).coerceAtMost(0.85f)
-                                                ),
-                                                shape = CircleShape
+                                                .border(
+                                                    width = if (isPressed) 1.5.dp else (1.0f + 0.45f * neighborGlow).dp,
+                                                    color = Color.White.copy(
+                                                        alpha = if (isPressed) 0.75f else (0.24f + 0.48f * neighborGlow).coerceAtMost(0.85f)
+                                                    ),
+                                                    shape = CircleShape
+                                                )
+                                        }
+                                        else -> {
+                                            // Flat Pixel Material 3 tonal surface
+                                            Modifier.background(
+                                                if (m3TonalFlash > 0.1f) {
+                                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
+                                                } else {
+                                                    MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.84f)
+                                                }
                                             )
-                                    } else {
-                                        // Flat Pixel Material 3 tonal surface
-                                        Modifier.background(
-                                            if (m3TonalFlash > 0.1f) {
-                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
-                                            } else {
-                                                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.84f)
-                                            }
-                                        )
+                                        }
                                     }
                                 )
                                 .pointerInput(keyId) {
@@ -588,13 +638,13 @@ private fun UiSpecificPinKeypad(
                             Text(
                                 text = keyId,
                                 fontSize = if (keySize < 64.dp) 22.sp else 26.sp,
-                                fontWeight = if (isGlass) FontWeight.Medium else FontWeight.SemiBold,
-                                color = if (isGlass) {
-                                    Color.White
-                                } else if (m3TonalFlash > 0.35f) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
+                                fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.headlineMedium.fontFamily,
+                                fontWeight = if (isGlass || isGlyph) FontWeight.Medium else FontWeight.SemiBold,
+                                color = when {
+                                    isGlyph -> if (isPressed) Color.Black else Color.White
+                                    isGlass -> Color.White
+                                    m3TonalFlash > 0.35f -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    else -> MaterialTheme.colorScheme.onSurface
                                 },
                                 textAlign = TextAlign.Center
                             )
@@ -604,20 +654,22 @@ private fun UiSpecificPinKeypad(
                             contentAlignment = Alignment.Center,
                             modifier = keyModifier
                                 .background(
-                                    if (isGlass) {
-                                        Color.White.copy(alpha = if (isPressed) 0.24f else 0.08f + 0.10f * neighborGlow)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f)
+                                    when {
+                                        isGlyph -> if (isPressed) Color.White else Color(0xFF141414)
+                                        isGlass -> Color.White.copy(alpha = if (isPressed) 0.24f else 0.08f + 0.10f * neighborGlow)
+                                        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.65f)
                                     }
                                 )
                                 .then(
-                                    if (isGlass) {
-                                        Modifier.border(
+                                    when {
+                                        isGlyph -> Modifier.border(1.dp, Color.White.copy(alpha = 0.24f), CircleShape)
+                                        isGlass -> Modifier.border(
                                             1.dp,
                                             Color.White.copy(alpha = 0.18f + 0.36f * neighborGlow),
                                             CircleShape
                                         )
-                                    } else Modifier
+                                        else -> Modifier
+                                    }
                                 )
                                 .pointerInput(keyId) {
                                     awaitEachGesture {
@@ -633,7 +685,11 @@ private fun UiSpecificPinKeypad(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.Backspace,
                                 contentDescription = "Delete digit",
-                                tint = if (isGlass) Color.White else MaterialTheme.colorScheme.onSurface,
+                                tint = when {
+                                    isGlyph -> if (isPressed) Color.Black else Color.White
+                                    isGlass -> Color.White
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                },
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -643,19 +699,30 @@ private fun UiSpecificPinKeypad(
                             modifier = keyModifier
                                 .background(
                                     when {
-                                        !canSubmit -> if (isGlass) Color.White.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.35f)
+                                        !canSubmit -> when {
+                                            isGlyph -> Color(0xFF0E0E0E)
+                                            isGlass -> Color.White.copy(alpha = 0.05f)
+                                            else -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.35f)
+                                        }
+                                        isGlyph -> Color(0xFFD92B2B)
                                         isGlass -> Color.White.copy(alpha = if (isPressed) 0.36f else 0.18f + 0.12f * neighborGlow)
                                         else -> MaterialTheme.colorScheme.primary
                                     }
                                 )
                                 .then(
-                                    if (isGlass && canSubmit) {
-                                        Modifier.border(
+                                    when {
+                                        isGlyph -> Modifier.border(
+                                            1.dp,
+                                            if (canSubmit) Color(0xFFD92B2B) else Color.White.copy(alpha = 0.16f),
+                                            CircleShape
+                                        )
+                                        isGlass && canSubmit -> Modifier.border(
                                             1.dp,
                                             Color.White.copy(alpha = 0.35f + 0.35f * neighborGlow),
                                             CircleShape
                                         )
-                                    } else Modifier
+                                        else -> Modifier
+                                    }
                                 )
                                 .clickable(enabled = canSubmit, onClick = { latestOnSubmit() })
                                 .testTag("lockscreen_pin_key_ok")
@@ -665,7 +732,7 @@ private fun UiSpecificPinKeypad(
                                 contentDescription = "Submit PIN",
                                 tint = when {
                                     !canSubmit -> Color.White.copy(alpha = 0.35f)
-                                    isGlass -> Color.White
+                                    isGlass || isGlyph -> Color.White
                                     else -> MaterialTheme.colorScheme.onPrimary
                                 },
                                 modifier = Modifier.size(24.dp)

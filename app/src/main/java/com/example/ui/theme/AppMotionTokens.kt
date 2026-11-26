@@ -10,6 +10,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -41,6 +42,7 @@ internal object SpringPhysicsSubEngine {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.88f, stiffness = 560f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.44f, stiffness = 275f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 940f * speed)
         }
     }
 
@@ -50,6 +52,7 @@ internal object SpringPhysicsSubEngine {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.90f, stiffness = 620f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.40f, stiffness = 245f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 1080f * speed)
         }
     }
 }
@@ -83,6 +86,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.84f, stiffness = 520f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.42f, stiffness = 235f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 900f * speed)
         }
     }
 
@@ -96,6 +100,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.90f, stiffness = 540f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.52f, stiffness = 285f * speed)
+            UiStyleMode.GLYPH_UI -> tween((115f / speed).toInt().coerceIn(65, 190), easing = LinearEasing)
         }
     }
 
@@ -109,6 +114,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> tween((190 / speed).toInt().coerceIn(90, 320), easing = FastOutSlowInEasing)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.68f, stiffness = 310f * speed)
+            UiStyleMode.GLYPH_UI -> tween((95f / speed).toInt().coerceIn(55, 160), easing = LinearEasing)
         }
     }
 
@@ -133,6 +139,11 @@ object AppMotion {
                         animationSpec = spring(dampingRatio = 0.48f, stiffness = 280f * speed)
                     )
             }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (130f / speed).toInt().coerceIn(70, 210)
+                fadeIn(tween(dur, easing = LinearEasing)) +
+                    slideInVertically(tween(dur, easing = FastOutSlowInEasing)) { it / 32 }
+            }
         }
     }
 
@@ -154,6 +165,9 @@ object AppMotion {
                         targetScale = 1.045f,
                         animationSpec = tween((180f / speed).toInt().coerceIn(85, 310), easing = FastOutSlowInEasing)
                     )
+            }
+            UiStyleMode.GLYPH_UI -> {
+                fadeOut(tween((100f / speed).toInt().coerceIn(55, 165), easing = LinearEasing))
             }
         }
     }
@@ -186,6 +200,11 @@ object AppMotion {
                         animationSpec = spring(dampingRatio = 0.48f, stiffness = 260f * speed)
                     ) { it / 16 }
             }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (130f / speed).toInt().coerceIn(70, 210)
+                fadeIn(tween(dur, easing = LinearEasing)) +
+                    scaleIn(initialScale = 0.96f, animationSpec = tween(dur, easing = LinearEasing))
+            }
         }
     }
 
@@ -214,6 +233,9 @@ object AppMotion {
                         animationSpec = spring(dampingRatio = 0.62f, stiffness = 310f * speed)
                     )
             }
+            UiStyleMode.GLYPH_UI -> {
+                fadeOut(tween((95f / speed).toInt().coerceIn(50, 160), easing = LinearEasing))
+            }
         }
     }
 
@@ -233,6 +255,11 @@ object AppMotion {
                 fadeIn(tween((220f / speed).toInt().coerceIn(100, 360))) +
                     expandVertically(spring(dampingRatio = 0.52f, stiffness = 290f * speed)) +
                     scaleIn(initialScale = 0.93f, animationSpec = spring(dampingRatio = 0.48f, stiffness = 300f * speed))
+            }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (130f / speed).toInt().coerceIn(70, 210)
+                fadeIn(tween(dur, easing = LinearEasing)) +
+                    expandVertically(tween(dur, easing = FastOutSlowInEasing))
             }
         }
     }
@@ -256,6 +283,11 @@ object AppMotion {
                         shrinkTowards = androidx.compose.ui.Alignment.Top
                     )
             }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (105f / speed).toInt().coerceIn(60, 170)
+                fadeOut(tween(dur, easing = LinearEasing)) +
+                    shrinkVertically(tween(dur, easing = LinearEasing))
+            }
         }
     }
 
@@ -272,6 +304,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.88f, stiffness = 540f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.46f, stiffness = 290f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 980f * speed)
         }
     }
 
@@ -285,6 +318,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.90f, stiffness = 520f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.48f, stiffness = 260f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 920f * speed)
         }
     }
 
@@ -298,6 +332,7 @@ object AppMotion {
         return when (uiStyle) {
             UiStyleMode.MATERIAL_3 -> spring(dampingRatio = 0.88f, stiffness = 490f * speed)
             UiStyleMode.FROSTED_GLASS_OS -> spring(dampingRatio = 0.50f, stiffness = 255f * speed)
+            UiStyleMode.GLYPH_UI -> spring(dampingRatio = 1.0f, stiffness = 860f * speed)
         }
     }
 
@@ -323,6 +358,11 @@ object AppMotion {
                         initialScale = 0.88f,
                         animationSpec = spring(dampingRatio = 0.46f, stiffness = 255f * speed)
                     )
+            }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (130f / speed).toInt().coerceIn(70, 210)
+                fadeIn(tween(dur, easing = LinearEasing)) +
+                    scaleIn(initialScale = 0.96f, animationSpec = tween(dur, easing = LinearEasing))
             }
         }
     }
@@ -350,6 +390,9 @@ object AppMotion {
                         animationSpec = spring(dampingRatio = 0.58f, stiffness = 310f * speed)
                     )
             }
+            UiStyleMode.GLYPH_UI -> {
+                fadeOut(tween((100f / speed).toInt().coerceIn(55, 165), easing = LinearEasing))
+            }
         }
     }
 
@@ -370,6 +413,9 @@ object AppMotion {
                 fadeIn(tween((220f / speed).toInt().coerceIn(100, 350))) +
                     scaleIn(initialScale = 0.82f, animationSpec = spring(dampingRatio = 0.44f, stiffness = 250f * speed))
             }
+            UiStyleMode.GLYPH_UI -> {
+                fadeIn(tween((135f / speed).toInt().coerceIn(70, 210), easing = LinearEasing))
+            }
         }
     }
 
@@ -389,6 +435,9 @@ object AppMotion {
             UiStyleMode.FROSTED_GLASS_OS -> {
                 fadeOut(tween((175f / speed).toInt().coerceIn(85, 280))) +
                     scaleOut(targetScale = 1.04f, animationSpec = spring(dampingRatio = 0.60f, stiffness = 300f * speed))
+            }
+            UiStyleMode.GLYPH_UI -> {
+                fadeOut(tween((100f / speed).toInt().coerceIn(55, 165), easing = LinearEasing))
             }
         }
     }
@@ -411,6 +460,11 @@ object AppMotion {
                     slideInVertically(spring(dampingRatio = 0.50f, stiffness = 265f * speed)) { it / 10 } +
                     scaleIn(initialScale = 0.93f, animationSpec = spring(dampingRatio = 0.52f, stiffness = 280f * speed))
             }
+            UiStyleMode.GLYPH_UI -> {
+                val dur = (125f / speed).toInt().coerceIn(65, 200)
+                fadeIn(tween(dur, easing = LinearEasing)) +
+                    slideInVertically(tween(dur, easing = FastOutSlowInEasing)) { it / 14 }
+            }
         }
     }
 
@@ -430,6 +484,9 @@ object AppMotion {
             UiStyleMode.FROSTED_GLASS_OS -> {
                 fadeOut(tween((160f / speed).toInt().coerceIn(80, 260), easing = FastOutSlowInEasing)) +
                     slideOutVertically(tween((165f / speed).toInt().coerceIn(80, 270), easing = FastOutSlowInEasing)) { -it / 12 }
+            }
+            UiStyleMode.GLYPH_UI -> {
+                fadeOut(tween((95f / speed).toInt().coerceIn(50, 160), easing = LinearEasing))
             }
         }
     }

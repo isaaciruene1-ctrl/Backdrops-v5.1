@@ -114,6 +114,8 @@ import com.example.ui.components.TactileSurface
 import com.example.ui.components.WallpaperAsyncImage
 import com.example.ui.components.glassSpecularBorder
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalUiStyleMode
 import com.example.ui.theme.rememberStudioHaptics
@@ -246,6 +248,7 @@ fun PreviewStudioScreen(
     val reducedMotion = LocalReducedMotionFlag.current
     val haptics = rememberStudioHaptics()
     val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
 
     val hasTransform = zoomScale > 1.01f || panOffset != Offset.Zero || dimFraction > 0.01f || lookFilter != CanvasLookFilter.ORIGINAL
 
@@ -300,6 +303,7 @@ fun PreviewStudioScreen(
                     notificationGroups = if (preferences.lockNotificationsEnabled) samplePreviewGroups else emptyList(),
                     hideSensitiveNotifications = preferences.hideSensitiveNotifications,
                     showChromeControls = false,
+                    motionMode = preferences.parsedWallpaperMotionMode,
                     useLiveTime = true
                 )
             } else {
@@ -348,15 +352,22 @@ fun PreviewStudioScreen(
             ) {
                 // Top Mock Status Bar + Controls
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = if (compactOverlay) 12.dp else 4.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("9:41", color = Color.White, style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Rounded.Wifi, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            Icon(Icons.Rounded.BatteryFull, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    if (mode == PreviewMode.HOME_SCREEN) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "9:41",
+                                color = Color.White,
+                                fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Rounded.Wifi, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Rounded.BatteryFull, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
 
@@ -463,10 +474,10 @@ fun PreviewStudioScreen(
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(if (compactOverlay) 10.dp else 14.dp)) {
                                     TactileSurface(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        containerColor = if (isGlyph) Color(0xFF141414).copy(alpha = 0.92f) else MaterialTheme.colorScheme.surfaceContainerHigh,
                                         glassTintAlpha = 0.68f,
-                                        shape = RoundedCornerShape(24.dp),
-                                        tonalElevation = 3.dp,
+                                        shape = RoundedCornerShape(if (isGlyph) 18.dp else 24.dp),
+                                        tonalElevation = if (isGlyph) 0.dp else 3.dp,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(
@@ -476,13 +487,15 @@ fun PreviewStudioScreen(
                                         ) {
                                             Column {
                                                 Text(
-                                                    text = "Friday, Nov 15",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    text = if (isGlyph) "FRI, NOV 15" else "Friday, Nov 15",
+                                                    fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                                                    color = if (isGlyph) Color.White.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant,
                                                     style = MaterialTheme.typography.labelMedium
                                                 )
                                                 Text(
                                                     text = "21° Mostly Clear",
-                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontFamily = if (isGlyph) DotGothicFontFamily else null,
+                                                    color = if (isGlyph) Color.White else MaterialTheme.colorScheme.onSurface,
                                                     style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.SemiBold
                                                 )
@@ -490,7 +503,7 @@ fun PreviewStudioScreen(
                                             Icon(
                                                 imageVector = Icons.Rounded.WbSunny,
                                                 contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
+                                                tint = if (isGlyph) GlyphRedDot else MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(28.dp)
                                             )
                                         }
@@ -860,7 +873,7 @@ fun PreviewStudioScreen(
                         tonalElevation = 4.dp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = (this@BoxWithConstraints.maxHeight * 0.48f).coerceAtLeast(200.dp))
+                            .heightIn(max = (this@BoxWithConstraints.maxHeight * 0.40f).coerceAtLeast(180.dp))
                             .navigationBarsPadding()
                     ) {
                         ControlsContent(scrollable = true)

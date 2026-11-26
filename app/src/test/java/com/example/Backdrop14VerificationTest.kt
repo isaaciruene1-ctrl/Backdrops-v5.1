@@ -211,7 +211,7 @@ class Backdrop14VerificationTest {
         settingsList.performScrollToNode(hasTestTag("settings_clear_cache_button"))
         composeRule.onNodeWithTag("settings_clear_cache_button").assertIsDisplayed()
         assertTrue(
-            composeRule.onAllNodesWithText("Backdrops 1.4", substring = true)
+            composeRule.onAllNodesWithText("Backdrop V2", substring = true)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
         )
@@ -244,13 +244,12 @@ class Backdrop14VerificationTest {
         scrollList.performScrollToNode(hasTestTag("lockscreen_notifications_switch"))
         composeRule.onNodeWithTag("lockscreen_notifications_switch").assertIsDisplayed()
 
-        // Lengthy secondary customizers start collapsed by default
-        composeRule.onNodeWithTag("lockscreen_credential_card").assertDoesNotExist()
-        scrollList.performScrollToNode(hasTestTag("lockscreen_drawer_credential_toggle"))
-        composeRule.onNodeWithTag("lockscreen_drawer_credential_toggle").performClick()
-        composeRule.waitForIdle()
+        // Credential security card & collapsed secondary drawers
         scrollList.performScrollToNode(hasTestTag("lockscreen_credential_card"))
         composeRule.onNodeWithTag("lockscreen_credential_card").assertIsDisplayed()
+        scrollList.performScrollToNode(hasTestTag("lockscreen_drawer_charging_toggle"))
+        composeRule.onNodeWithTag("lockscreen_drawer_charging_toggle").performClick()
+        composeRule.waitForIdle()
     }
 
     // 5. Compact 320dp screen width renders StudioWidgetsLockStrip cleanly without overflow crash

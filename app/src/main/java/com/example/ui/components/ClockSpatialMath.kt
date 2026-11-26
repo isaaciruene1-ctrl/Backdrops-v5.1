@@ -392,11 +392,13 @@ internal object ViewportAdaptiveMorphSubEngine {
                 HyperOsClockFace.KINETIC_MONO,
                 HyperOsClockFace.RETRO_PIXEL_MATRIX,
                 HyperOsClockFace.GLYPH_GEOMETRIC,
-                HyperOsClockFace.GLYPH_SEGMENTED -> HyperOsClockFace.CHRONO_TELEMETRY
+                HyperOsClockFace.GLYPH_SEGMENTED,
+                HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL -> HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL
                 HyperOsClockFace.ROMAN_MONUMENT,
                 HyperOsClockFace.EDITORIAL_DUO -> HyperOsClockFace.ROMAN_MONUMENT
                 HyperOsClockFace.SOLAR_ARC_GAUGE,
-                HyperOsClockFace.COMPASS_CHRONO -> HyperOsClockFace.SOLAR_ARC_GAUGE
+                HyperOsClockFace.COMPASS_CHRONO,
+                HyperOsClockFace.GLYPH_SUNBURST_ANALOG -> HyperOsClockFace.SOLAR_ARC_GAUGE
                 HyperOsClockFace.HYPEROS_EXTRA_LONG,
                 HyperOsClockFace.IOS27_MODERATELY_LONG -> HyperOsClockFace.CLASSIC_HORIZON
                 else -> HyperOsClockFace.POSTER_SPLIT
@@ -414,6 +416,8 @@ internal object ViewportAdaptiveMorphSubEngine {
                 HyperOsClockFace.ANALOG_MINIMAL -> HyperOsClockFace.ORBITAL_RING_HYBRID
                 HyperOsClockFace.GLYPH_GEOMETRIC -> HyperOsClockFace.GLYPH_GEOMETRIC
                 HyperOsClockFace.GLYPH_SEGMENTED -> HyperOsClockFace.GLYPH_SEGMENTED
+                HyperOsClockFace.GLYPH_SUNBURST_ANALOG,
+                HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL -> HyperOsClockFace.GLYPH_SUNBURST_ANALOG
                 HyperOsClockFace.COMPASS_CHRONO,
                 HyperOsClockFace.RETRO_PIXEL_MATRIX -> HyperOsClockFace.COMPASS_CHRONO
                 HyperOsClockFace.HANDWRITTEN_STAMP,
@@ -437,6 +441,8 @@ internal object ViewportAdaptiveMorphSubEngine {
                 HyperOsClockFace.LUXE_VOGUE -> HyperOsClockFace.CALLIGRAPHY_SEAL
                 HyperOsClockFace.IOS27_MODERATELY_LONG,
                 HyperOsClockFace.TALL_POSTER_1340 -> HyperOsClockFace.HYPEROS_EXTRA_LONG
+                HyperOsClockFace.GLYPH_DOT_MATRIX_DIGITAL,
+                HyperOsClockFace.GLYPH_SUNBURST_ANALOG -> HyperOsClockFace.GLYPH_GEOMETRIC
                 HyperOsClockFace.MEADOW_BLOCK -> HyperOsClockFace.MEADOW_BLOCK
                 else -> HyperOsClockFace.MAGAZINE_STACKED
             }

@@ -158,7 +158,7 @@ fun ProfileSettingsScreen(
                                         shape = RoundedCornerShape(50)
                                     ) {
                                         Text(
-                                            text = "1.5",
+                                            text = "2.0",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onPrimary,
@@ -167,7 +167,7 @@ fun ProfileSettingsScreen(
                                     }
                                 }
                                 Text(
-                                    text = "Tap to launch Depth Studio • $totalCount+ curated canvases",
+                                    text = "Tap to launch Depth Studio • $totalCount curated + local folders",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f)
                                 )
@@ -350,7 +350,7 @@ fun ProfileSettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Tour Backdrop 1.5 depth studio, notifications & 12-widget suite",
+                                    text = "Tour Backdrop V2 Depth Studio, Glance Pill & Lock Screen Studio",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -455,7 +455,7 @@ fun ProfileSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Version 1.5 • YOUR SCREEN. YOUR CANVAS.",
+                                "Version 2.0 • YOUR SCREEN. YOUR CANVAS.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -519,7 +519,7 @@ fun ProfileSettingsScreen(
                                 text = if (devTapCount in 6..9) {
                                     "${10 - devTapCount} taps away from Studio Inspector..."
                                 } else {
-                                    "Backdrop 1.5 Spatial Depth V5 & Optical Liquid Glass Engine"
+                                    "Backdrop V2 • Spatial Depth V5, Glyph UI & Lock Studio"
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -534,7 +534,7 @@ fun ProfileSettingsScreen(
     if (showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
-            title = { Text("Privacy Policy — Backdrop 1.5") },
+            title = { Text("Privacy Policy — Backdrop V2") },
             text = {
                 Text(
                     "1. Strictly On-Device Data: Favorites, custom collections, Lock-Screen Sets, " +
@@ -566,9 +566,9 @@ fun ProfileSettingsScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        "Backdrop 1.5 unites a $totalCount+ 4K catalog with Spatial Depth V5, " +
-                            "${HyperOsClockFace.entries.size} adaptive lock-screen clocks, 10 Studio fonts & Glow materials, " +
-                            "8 brand lock notification styles, 12 Home & Lock widgets, and Hardware-aware Liquid Glass.",
+                        "Backdrop V2 pairs device folder hubs with $totalCount curated 4K canvases, Spatial Depth V5, " +
+                            "${HyperOsClockFace.entries.size} adaptive lock-screen clocks, 3 independent UI design systems (Material 3, Frosted Glass OS, Glyph UI), " +
+                            "Glance Pill cards, and 22+ Home & Lock widgets.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
@@ -582,7 +582,7 @@ fun ProfileSettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         BackdropLogoMark(size = 20.dp)
-                        Text("Version 1.5", style = MaterialTheme.typography.labelMedium)
+                        Text("Version 2.0", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             },
@@ -611,14 +611,14 @@ fun ProfileSettingsScreen(
                     modifier = Modifier.testTag("developer_easter_egg_dialog")
                 ) {
                     Text(
-                        "Crafted with precision by Isaac Iruene — Backdrop Build 1.5 (code 5).",
+                        "Crafted with precision by Isaac Iruene — Backdrop V2 (Build 2.0).",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("• Clock Faces: ${HyperOsClockFace.entries.size}", style = MaterialTheme.typography.bodySmall)
-                    Text("• Typefaces: ${HyperOsClockFont.entries.size} Clocks • 10 Studio UI Fonts", style = MaterialTheme.typography.bodySmall)
-                    Text("• Catalog Size: $totalCount canvases", style = MaterialTheme.typography.bodySmall)
+                    Text("• Typefaces: ${HyperOsClockFont.entries.size} Clocks • 10 Studio UI Fonts + DotGothic", style = MaterialTheme.typography.bodySmall)
+                    Text("• Curated Shelf: $totalCount canvases (100 max cap)", style = MaterialTheme.typography.bodySmall)
                     Text("• Depth Pipeline: Spatial Depth Engine V5 (Lab + ML Kit)", style = MaterialTheme.typography.bodySmall)
                     Text("• Device: ${Build.MANUFACTURER} ${Build.MODEL} (API ${Build.VERSION.SDK_INT})", style = MaterialTheme.typography.bodySmall)
                     Text("• Active Style: ${preferences.parsedUiStyle.label} (${preferences.parsedLiquidGlassTier.label})", style = MaterialTheme.typography.bodySmall)

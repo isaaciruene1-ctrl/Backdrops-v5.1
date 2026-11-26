@@ -247,12 +247,24 @@ data class LockNotificationStyleConfig(
 }
 
 enum class ChargingAnimationPreset(val label: String, val subtitle: String) {
-    PULSE_RING("Pulse Ring", "Expanding luminous battery orbital ring"),
-    LIQUID_WAVE("Liquid Wave", "Fluid rising charge reservoir with meniscus"),
-    ORB_HALO("Halo Arc", "Hyper-smooth kinetic glow halo around bottom charge"),
-    MINIMAL_BEAM("Minimal Beam", "Sleek floating pill with charging bolt & percentage"),
-    ENERGY_CORE("Energy Core", "Harmonic kinetic flux rings with radiant core embers"),
-    OFF("Disabled", "Hide charging overlay animation")
+    MINIMAL_ENERGY_HALO("Minimal Energy Halo", "Subtle breathing luminous ring matched to battery percentage"),
+    LIQUID_ENERGY_FLOW("Liquid Energy Flow", "Dual-layer fluid charge wave inside a sleek capsule reservoir"),
+    VERTICAL_LIGHT_PULSE("Vertical Light Pulse", "Slim edge-to-edge energy beam rising cleanly from charging port"),
+    PRECISION_BATTERY_METER("Precision Battery Meter", "Segmented technical progress gauge with clean tabular % readout"),
+    SOFT_CHARGING_RIPPLE("Soft Charging Ripple", "Concentric damped energy waves radiating smoothly from bottom port"),
+    OFF("Disabled", "Hide charging overlay animation");
+
+    companion object {
+        fun fromNameOrLegacy(raw: String?): ChargingAnimationPreset = when (raw?.trim()?.uppercase()) {
+            "MINIMAL_ENERGY_HALO", "PULSE_RING" -> MINIMAL_ENERGY_HALO
+            "LIQUID_ENERGY_FLOW", "LIQUID_WAVE" -> LIQUID_ENERGY_FLOW
+            "VERTICAL_LIGHT_PULSE", "ORB_HALO" -> VERTICAL_LIGHT_PULSE
+            "PRECISION_BATTERY_METER", "MINIMAL_BEAM" -> PRECISION_BATTERY_METER
+            "SOFT_CHARGING_RIPPLE", "ENERGY_CORE" -> SOFT_CHARGING_RIPPLE
+            "OFF" -> OFF
+            else -> MINIMAL_ENERGY_HALO
+        }
+    }
 }
 
 enum class ChargingPosition(val label: String) {
@@ -263,7 +275,7 @@ enum class ChargingPosition(val label: String) {
 @Immutable
 data class ChargingAnimationConfig(
     val enabled: Boolean = true,
-    val preset: ChargingAnimationPreset = ChargingAnimationPreset.PULSE_RING,
+    val preset: ChargingAnimationPreset = ChargingAnimationPreset.MINIMAL_ENERGY_HALO,
     val speedMultiplier: Float = 1.0f,
     val sizeScale: Float = 1.0f,
     val position: ChargingPosition = ChargingPosition.BOTTOM,
@@ -291,8 +303,7 @@ data class ChargingAnimationConfig(
                 val o = JSONObject(raw)
                 ChargingAnimationConfig(
                     enabled = o.optBoolean("enabled", true),
-                    preset = runCatching { ChargingAnimationPreset.valueOf(o.optString("preset")) }
-                        .getOrDefault(ChargingAnimationPreset.PULSE_RING),
+                    preset = ChargingAnimationPreset.fromNameOrLegacy(o.optString("preset")),
                     speedMultiplier = o.optDouble("speedMultiplier", 1.0).toFloat().coerceIn(0.5f, 2.0f),
                     sizeScale = o.optDouble("sizeScale", 1.0).toFloat().coerceIn(0.65f, 1.5f),
                     position = runCatching { ChargingPosition.valueOf(o.optString("position")) }
@@ -382,6 +393,26 @@ enum class StudioWidgetType(
     DAILY_QUOTE("Daily Quote", "Curated studio typography quote rotating each day", "4×2")
 }
 
+enum class WidgetGeometry(val label: String) {
+    INLINE("Inline"),
+    CIRCULAR("Circular"),
+    RECTANGULAR("Rectangular")
+}
+
+fun defaultGeometryForWidget(type: StudioWidgetType): WidgetGeometry = when (type) {
+    StudioWidgetType.QUICK_INFO,
+    StudioWidgetType.SUNRISE_SUNSET,
+    StudioWidgetType.DAY_PROGRESS -> WidgetGeometry.INLINE
+    StudioWidgetType.DIGITAL_CLOCK,
+    StudioWidgetType.CALENDAR,
+    StudioWidgetType.MUSIC_PLAYER,
+    StudioWidgetType.WORLD_CLOCK,
+    StudioWidgetType.PINNED_NOTE,
+    StudioWidgetType.AUDIO_VOLUME,
+    StudioWidgetType.DAILY_QUOTE -> WidgetGeometry.RECTANGULAR
+    else -> WidgetGeometry.CIRCULAR
+}
+
 @Immutable
 data class StudioWidgetItem(
     val type: StudioWidgetType,
@@ -394,7 +425,8 @@ data class StudioWidgetItem(
     val sortOrder: Int = 0,
     val isFreePositioned: Boolean = false,
     val freeXFraction: Float = 0.5f,
-    val freeYFraction: Float = 0.42f
+    val freeYFraction: Float = 0.42f,
+    val geometry: WidgetGeometry = defaultGeometryForWidget(type)
 ) {
     fun sanitized(): StudioWidgetItem = copy(
         widthScale = widthScale.coerceIn(0.65f, 1.65f),
@@ -420,6 +452,7 @@ data class StudioWidgetItem(
                     put("isFreePositioned", item.isFreePositioned)
                     put("freeXFraction", item.freeXFraction.toDouble())
                     put("freeYFraction", item.freeYFraction.toDouble())
+                    put("geometry", item.geometry.name)
                     if (item.widgetMeta.isNotEmpty()) {
                         put("widgetMeta", item.widgetMeta)
                     }
@@ -428,12 +461,17 @@ data class StudioWidgetItem(
             return arr.toString()
         }
 
-        fun listFromJson(raw: String?): List<StudioWidgetItem> {
+        fun listFromJson(
+            raw: String?,
+            defaultEnabledTypes: Set<StudioWidgetType> = setOf(StudioWidgetType.WEATHER, StudioWidgetType.BATTERY)
+        ): List<StudioWidgetItem> {
             val saved = if (raw.isNullOrBlank()) emptyList() else runCatching {
                 val arr = JSONArray(raw)
                 (0 until arr.length()).mapNotNull { i ->
                     val o = arr.optJSONObject(i) ?: return@mapNotNull null
                     val t = runCatching { StudioWidgetType.valueOf(o.optString("type")) }.getOrNull() ?: return@mapNotNull null
+                    val geom = runCatching { WidgetGeometry.valueOf(o.optString("geometry")) }
+                        .getOrElse { defaultGeometryForWidget(t) }
                     StudioWidgetItem(
                         type = t,
                         enabled = o.optBoolean("enabled", false),
@@ -445,7 +483,8 @@ data class StudioWidgetItem(
                         sortOrder = if (o.has("sortOrder")) o.optInt("sortOrder", i) else i,
                         isFreePositioned = o.optBoolean("isFreePositioned", false),
                         freeXFraction = o.optDouble("freeXFraction", 0.5).toFloat(),
-                        freeYFraction = o.optDouble("freeYFraction", 0.42).toFloat()
+                        freeYFraction = o.optDouble("freeYFraction", 0.42).toFloat(),
+                        geometry = geom
                     ).sanitized()
                 }
             }.getOrDefault(emptyList())
@@ -453,11 +492,101 @@ data class StudioWidgetItem(
             return StudioWidgetType.entries.map { t ->
                 map[t] ?: StudioWidgetItem(
                     type = t,
-                    enabled = t == StudioWidgetType.WEATHER || t == StudioWidgetType.BATTERY,
+                    enabled = t in defaultEnabledTypes,
                     sortOrder = t.ordinal
                 )
             }
         }
+    }
+}
+
+enum class MediaPlayerSizeTier(
+    val label: String,
+    val heightDp: Float,
+    val widthScale: Float
+) {
+    COMPACT("Compact", 52f, 0.72f),
+    MEDIUM("Medium", 64f, 0.86f),
+    EXPANDED_MINI("Expanded", 82f, 0.94f);
+
+    companion object {
+        fun fromName(raw: String?): MediaPlayerSizeTier =
+            entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: COMPACT
+    }
+}
+
+enum class GlanceCardType(val label: String) {
+    NOW_PLAYING("Now Playing"),
+    WEATHER_BRIEF("Weather & Date"),
+    CALENDAR_NEXT("Calendar"),
+    BATTERY_BRIEF("Battery & Device")
+}
+
+enum class LockShortcutAction(
+    val label: String,
+    val subtitle: String,
+    val category: String
+) {
+    FLASHLIGHT("Flashlight", "Toggle device LED torch", "Utilities"),
+    CAMERA("Camera", "Open system camera", "Capture"),
+    ALARM("Alarm", "Open system alarms", "Clock"),
+    TIMER("Timer", "Start a countdown timer", "Clock"),
+    STOPWATCH("Stopwatch", "Open stopwatch", "Clock"),
+    CALCULATOR("Calculator", "Open system calculator", "Utilities"),
+    QR_SCANNER("Scan Code", "Open camera code scanner", "Utilities"),
+    SETTINGS("Settings", "Open system settings", "System"),
+    OPEN_APP("Open App", "Launch an installed application", "Apps"),
+    NONE("None", "Remove corner shortcut", "Empty");
+
+    companion object {
+        fun fromName(raw: String?): LockShortcutAction =
+            entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: NONE
+    }
+}
+
+@Immutable
+data class LockShortcutConfig(
+    val action: LockShortcutAction = LockShortcutAction.FLASHLIGHT,
+    val packageName: String = "",
+    val customLabel: String = ""
+) {
+    val displayLabel: String
+        get() = when {
+            action == LockShortcutAction.OPEN_APP && customLabel.isNotBlank() -> customLabel
+            action == LockShortcutAction.OPEN_APP && packageName.isNotBlank() ->
+                packageName.substringAfterLast('.').replaceFirstChar { it.uppercase() }
+            else -> action.label
+        }
+
+    fun toJsonString(): String = JSONObject().apply {
+        put("action", action.name)
+        if (packageName.isNotBlank()) put("packageName", packageName)
+        if (customLabel.isNotBlank()) put("customLabel", customLabel)
+    }.toString()
+
+    companion object {
+        fun fromJsonString(raw: String?, fallback: LockShortcutAction = LockShortcutAction.FLASHLIGHT): LockShortcutConfig {
+            if (raw.isNullOrBlank()) return LockShortcutConfig(action = fallback)
+            return runCatching {
+                val o = JSONObject(raw)
+                LockShortcutConfig(
+                    action = LockShortcutAction.fromName(o.optString("action", fallback.name)),
+                    packageName = o.optString("packageName", "").trim(),
+                    customLabel = o.optString("customLabel", "").trim()
+                )
+            }.getOrElse { LockShortcutConfig(action = fallback) }
+        }
+    }
+}
+
+enum class WallpaperMotionMode(val label: String, val subtitle: String) {
+    STATIC("Static", "Crisp locked canvas with zero motion overhead"),
+    SUBTLE_PARALLAX("Subtle Parallax", "Micro gyroscope shift clamped cleanly within 1.06×"),
+    AMBIENT_DRIFT("Ambient Drift", "Gentle low-frequency breathing drift when eligible");
+
+    companion object {
+        fun fromName(raw: String?): WallpaperMotionMode =
+            entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: STATIC
     }
 }
 
@@ -467,12 +596,13 @@ enum class OfflinePackSizeOption(
     val estimatedMb: Int
 ) {
     ESSENTIAL(25, "Essential Pack (25)", 22),
-    STUDIO(60, "Studio Pack (60)", 54),
-    EXPANDED(150, "Expanded Pack (150)", 135),
-    ARCHIVE(300, "Archive Pack (300)", 270);
+    STUDIO(50, "Studio Pack (50)", 45),
+    CURATED_FULL(100, "Full Curated Pack (100)", 90);
 
     companion object {
-        fun fromCount(count: Int): OfflinePackSizeOption =
-            entries.minByOrNull { kotlin.math.abs(it.count - count) } ?: STUDIO
+        fun fromCount(count: Int): OfflinePackSizeOption {
+            val clamped = count.coerceIn(25, 100)
+            return entries.minByOrNull { kotlin.math.abs(it.count - clamped) } ?: STUDIO
+        }
     }
 }

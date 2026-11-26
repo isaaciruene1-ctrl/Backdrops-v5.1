@@ -138,8 +138,11 @@ import com.example.data.catalog.WallpaperCatalog
 import com.example.data.model.StudioWidgetItem
 import com.example.data.model.StudioWidgetType
 import com.example.data.model.UiStyleMode
+import com.example.data.model.WidgetGeometry
 import com.example.engine.notifications.BackdropNotificationListenerService
 import com.example.ui.theme.AppMotion
+import com.example.ui.theme.DotGothicFontFamily
+import com.example.ui.theme.GlyphRedDot
 import com.example.ui.theme.JetBrainsMonoFontFamily
 import com.example.ui.theme.LocalReducedMotionFlag
 import com.example.ui.theme.LocalThemeCustomization
@@ -555,6 +558,79 @@ object LockWidgetDragSpatialSolver {
     }
 }
 
+/**
+ * iOS-inspired Inline Telemetry Bar rendered directly above the lock-screen clock.
+ */
+@Composable
+fun StudioInlineTopWidgetBar(
+    widgetType: StudioWidgetType,
+    telemetry: ClockWidgetTelemetry,
+    isCharging: Boolean,
+    is24HourFormat: Boolean = true,
+    onDarkSurface: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val uiStyle = LocalUiStyleMode.current
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
+    val now = remember { Date() }
+    val dateLabel = remember(now) {
+        SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(now).uppercase(Locale.getDefault())
+    }
+    val nextEvent = remember(widgetType) {
+        if (widgetType == StudioWidgetType.CALENDAR && StudioWidgetSystemBridge.hasCalendarPermission(context)) {
+            StudioWidgetSystemBridge.loadUpcomingCalendarEvents(context, limit = 1).firstOrNull()
+        } else null
+    }
+    val solar = remember(widgetType) {
+        if (widgetType == StudioWidgetType.SUNRISE_SUNSET) StudioWidgetSystemBridge.readSolarSummary() else null
+    }
+    val dayProg = remember(widgetType) {
+        if (widgetType == StudioWidgetType.DAY_PROGRESS) StudioWidgetSystemBridge.readDayProgress() else null
+    }
+    val stepSummary = remember(widgetType) {
+        if (widgetType == StudioWidgetType.STEP_COUNTER) "1,420 STEPS" else null
+    }
+
+    val textColor = if (onDarkSurface) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.onSurface
+    val accentDot = if (isGlyph) GlyphRedDot else MaterialTheme.colorScheme.primary
+
+    val inlineLabel = when (widgetType) {
+        StudioWidgetType.WEATHER -> "$dateLabel  •  ${telemetry.weatherText}"
+        StudioWidgetType.BATTERY -> "$dateLabel  •  ${telemetry.batteryPercent}%${if (isCharging) " ⚡" else ""}"
+        StudioWidgetType.CALENDAR -> nextEvent?.let { "$dateLabel  •  ${it.timeLabel} ${it.title}" } ?: "$dateLabel  •  Clear Agenda"
+        StudioWidgetType.SUNRISE_SUNSET -> "$dateLabel  •  ↑${solar?.sunriseLabel ?: "06:30"} ↓${solar?.sunsetLabel ?: "18:10"}"
+        StudioWidgetType.DAY_PROGRESS -> "$dateLabel  •  Day ${dayProg?.dayPercent ?: 50}%"
+        StudioWidgetType.STEP_COUNTER -> "$dateLabel  •  ${stepSummary ?: "STEPS"}"
+        else -> "$dateLabel  •  ${telemetry.weatherText}"
+    }
+
+    Row(
+        modifier = modifier
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .testTag("lockscreen_inline_top_widget_bar"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(5.dp)
+                .clip(CircleShape)
+                .background(accentDot)
+        )
+        Text(
+            text = inlineLabel,
+            fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = if (isGlyph) 12.sp else 11.5.sp,
+            letterSpacing = 1.sp,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
 @Composable
 fun StudioWidgetsLockStrip(
     widgets: List<StudioWidgetItem>,
@@ -729,16 +805,26 @@ fun StudioWidgetCard(
     val uiStyle = LocalUiStyleMode.current
     val customTokens = LocalThemeCustomization.current
     val haptics = rememberStudioHaptics()
-    val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS || onDarkSurface
+    val isGlass = uiStyle == UiStyleMode.FROSTED_GLASS_OS
+    val isGlyph = uiStyle == UiStyleMode.GLYPH_UI
 
-    val cardBg = if (onDarkSurface) {
-        Color(0xFF101522).copy(alpha = if (uiStyle == UiStyleMode.FROSTED_GLASS_OS) 0.56f else 0.72f)
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+    val cardBg = when {
+        isGlyph && onDarkSurface -> Color(0xFF141414).copy(alpha = 0.94f)
+        isGlyph -> MaterialTheme.colorScheme.surfaceContainerHigh
+        onDarkSurface -> Color(0xFF101522).copy(alpha = if (isGlass) 0.54f else 0.74f)
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
-    val cardFg = if (onDarkSurface) Color.White else MaterialTheme.colorScheme.onSurface
-    val cardSub = if (onDarkSurface) Color.White.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant
-    val accent = MaterialTheme.colorScheme.primary
+    val cardFg = when {
+        isGlyph && onDarkSurface -> Color.White
+        onDarkSurface -> Color.White
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val cardSub = when {
+        isGlyph && onDarkSurface -> Color(0xFFA0A0A0)
+        onDarkSurface -> Color.White.copy(alpha = 0.72f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val accent = if (isGlyph) GlyphRedDot else MaterialTheme.colorScheme.primary
 
     var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(item.type) {
@@ -762,24 +848,47 @@ fun StudioWidgetCard(
 
     val safeWScale = item.widthScale.coerceIn(0.65f, 1.65f)
     val safeHScale = item.heightScale.coerceIn(0.65f, 1.65f)
-    val baseWidthDp = when (item.type) {
-        StudioWidgetType.MUSIC_PLAYER,
-        StudioWidgetType.CALENDAR,
-        StudioWidgetType.QUICK_INFO,
-        StudioWidgetType.WORLD_CLOCK,
-        StudioWidgetType.SUNRISE_SUNSET,
-        StudioWidgetType.DAY_PROGRESS,
-        StudioWidgetType.PINNED_NOTE,
-        StudioWidgetType.AUDIO_VOLUME,
-        StudioWidgetType.DAILY_QUOTE -> 228f
+    val isCircularGeometry = item.geometry == WidgetGeometry.CIRCULAR &&
+        item.type !in setOf(
+            StudioWidgetType.MUSIC_PLAYER,
+            StudioWidgetType.CALENDAR,
+            StudioWidgetType.PINNED_NOTE,
+            StudioWidgetType.DAILY_QUOTE,
+            StudioWidgetType.WORLD_CLOCK
+        )
+    val isInlineGeometry = item.geometry == WidgetGeometry.INLINE
+    val baseWidthDp = when {
+        isCircularGeometry -> 104f
+        isInlineGeometry -> 208f
+        item.type in setOf(
+            StudioWidgetType.MUSIC_PLAYER,
+            StudioWidgetType.CALENDAR,
+            StudioWidgetType.QUICK_INFO,
+            StudioWidgetType.WORLD_CLOCK,
+            StudioWidgetType.SUNRISE_SUNSET,
+            StudioWidgetType.DAY_PROGRESS,
+            StudioWidgetType.PINNED_NOTE,
+            StudioWidgetType.AUDIO_VOLUME,
+            StudioWidgetType.DAILY_QUOTE
+        ) -> 228f
         else -> 166f
     }
-    val baseHeightDp = 114f
-    val boundedMaxWidthDp = maxCardWidthDp.coerceAtLeast(112f)
-    val resolvedWidthDp = (baseWidthDp * safeWScale).coerceIn(112f, boundedMaxWidthDp).dp
-    val resolvedHeightDp = (baseHeightDp * safeHScale).coerceIn(78f, 196f).dp
+    val baseHeightDp = when {
+        isCircularGeometry -> 104f
+        isInlineGeometry -> 64f
+        else -> 114f
+    }
+    val boundedMaxWidthDp = maxCardWidthDp.coerceAtLeast(100f)
+    val resolvedWidthDp = (baseWidthDp * safeWScale).coerceIn(94f, boundedMaxWidthDp).dp
+    val resolvedHeightDp = (baseHeightDp * safeHScale).coerceIn(58f, 196f).dp
     val baseWidthPx = with(density) { baseWidthDp.dp.toPx().coerceAtLeast(1f) }
     val baseHeightPx = with(density) { baseHeightDp.dp.toPx().coerceAtLeast(1f) }
+    val cardShape = when {
+        isCircularGeometry -> CircleShape
+        isInlineGeometry -> RoundedCornerShape(50)
+        isGlyph -> RoundedCornerShape(18.dp)
+        else -> RoundedCornerShape(22.dp)
+    }
 
     val latestItem by rememberUpdatedState(item)
     val latestOnUpdateWidget by rememberUpdatedState(onUpdateWidgetItem)
@@ -797,19 +906,24 @@ fun StudioWidgetCard(
         Surface(
             color = cardBg,
             contentColor = cardFg,
-            shape = RoundedCornerShape(22.dp),
+            shape = cardShape,
             border = when {
                 isResizeMode -> BorderStroke(1.6.dp, accent.copy(alpha = 0.92f))
-                isGlass -> BorderStroke(1.dp, Color.White.copy(alpha = 0.24f))
+                isGlyph -> BorderStroke(1.dp, if (onDarkSurface) Color.White.copy(alpha = 0.22f) else MaterialTheme.colorScheme.outline)
+                isGlass || onDarkSurface -> BorderStroke(1.dp, Color.White.copy(alpha = 0.24f))
                 else -> null
             },
-            tonalElevation = if (onDarkSurface) 0.dp else 3.dp,
+            tonalElevation = if (onDarkSurface || isGlyph) 0.dp else 3.dp,
             modifier = Modifier
                 .width(resolvedWidthDp)
                 .height(resolvedHeightDp)
                 .testTag("studio_widget_${item.type.name.lowercase()}")
         ) {
-            Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (isCircularGeometry || isInlineGeometry) 10.dp else 12.dp)
+            ) {
                 when (item.type) {
                     StudioWidgetType.DIGITAL_CLOCK -> {
                         val d = Date(nowMs)
@@ -871,24 +985,72 @@ fun StudioWidgetCard(
                     }
 
                     StudioWidgetType.WEATHER -> {
-                        Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text("Weather", style = MaterialTheme.typography.labelSmall, color = cardSub)
-                                Icon(Icons.Rounded.WbSunny, contentDescription = "Weather condition", tint = Color(0xFFFFCA62), modifier = Modifier.size(20.dp))
+                        if (isGlyph) {
+                            Column(
+                                verticalArrangement = Arrangement.SpaceBetween,
+                                horizontalAlignment = if (isCircularGeometry) Alignment.CenterHorizontally else Alignment.Start,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Canvas(modifier = Modifier.size(if (isCircularGeometry) 32.dp else 36.dp)) {
+                                    // Nothing-style dot-matrix cloud icon
+                                    val dotR = 2.1.dp.toPx()
+                                    val cloudCoords = listOf(
+                                        0.38f to 0.25f, 0.52f to 0.20f, 0.65f to 0.28f,
+                                        0.25f to 0.42f, 0.40f to 0.40f, 0.55f to 0.40f, 0.72f to 0.44f,
+                                        0.20f to 0.58f, 0.36f to 0.58f, 0.52f to 0.58f, 0.68f to 0.58f, 0.80f to 0.58f
+                                    )
+                                    cloudCoords.forEach { (fx, fy) ->
+                                        drawCircle(cardFg, dotR, Offset(size.width * fx, size.height * fy))
+                                    }
+                                    // Subtle red accent rain dot
+                                    drawCircle(GlyphRedDot, dotR * 0.9f, Offset(size.width * 0.42f, size.height * 0.78f))
+                                    drawCircle(cardSub, dotR * 0.85f, Offset(size.width * 0.62f, size.height * 0.78f))
+                                }
+                                Text(
+                                    text = telemetry.weatherText,
+                                    fontFamily = DotGothicFontFamily,
+                                    fontSize = if (isCircularGeometry) 12.sp else 14.sp,
+                                    color = cardFg,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
-                            Text(
-                                text = telemetry.weatherText,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = cardFg,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = if (telemetry.isWeatherAvailable) "Open-Meteo Live" else "Sync in Settings",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = accent
-                            )
+                        } else if (isCircularGeometry) {
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(Icons.Rounded.WbSunny, contentDescription = "Weather condition", tint = Color(0xFFFFCA62), modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = telemetry.weatherText.substringBefore(" "),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardFg,
+                                    maxLines = 1
+                                )
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Weather", style = MaterialTheme.typography.labelSmall, color = cardSub)
+                                    Icon(Icons.Rounded.WbSunny, contentDescription = "Weather condition", tint = Color(0xFFFFCA62), modifier = Modifier.size(20.dp))
+                                }
+                                Text(
+                                    text = telemetry.weatherText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardFg,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (telemetry.isWeatherAvailable) "Open-Meteo Live" else "Sync in Settings",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = accent
+                                )
+                            }
                         }
                     }
 
@@ -942,23 +1104,46 @@ fun StudioWidgetCard(
 
                     StudioWidgetType.BATTERY -> {
                         val pct = telemetry.batteryPercent.coerceIn(0, 100)
-                        Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (isCharging) "Charging" else "Battery", style = MaterialTheme.typography.labelSmall, color = cardSub)
-                                Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, tint = if (isCharging) Color(0xFF5CF28E) else accent, modifier = Modifier.size(18.dp))
+                        if (isCircularGeometry) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Canvas(modifier = Modifier.size(66.dp)) {
+                                    drawCircle(color = cardSub.copy(alpha = 0.25f), style = Stroke(4.5.dp.toPx()))
+                                    drawArc(
+                                        color = if (isGlyph) GlyphRedDot else if (isCharging) Color(0xFF5CF28E) else accent,
+                                        startAngle = -90f,
+                                        sweepAngle = (pct / 100f) * 360f,
+                                        useCenter = false,
+                                        style = Stroke(4.5.dp.toPx(), cap = StrokeCap.Round)
+                                    )
+                                }
+                                Text(
+                                    text = "$pct%",
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else JetBrainsMonoFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = cardFg
+                                )
                             }
-                            Text(
-                                text = "$pct%",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = cardFg
-                            )
-                            LinearProgressIndicator(
-                                progress = { pct / 100f },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
-                                color = if (isCharging) Color(0xFF5CF28E) else accent,
-                                trackColor = cardSub.copy(alpha = 0.25f)
-                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxSize()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                    Text(if (isCharging) "Charging" else "Battery", style = MaterialTheme.typography.labelSmall, color = cardSub)
+                                    Icon(Icons.Rounded.BatteryChargingFull, contentDescription = null, tint = if (isGlyph) GlyphRedDot else if (isCharging) Color(0xFF5CF28E) else accent, modifier = Modifier.size(18.dp))
+                                }
+                                Text(
+                                    text = "$pct%",
+                                    fontFamily = if (isGlyph) DotGothicFontFamily else MaterialTheme.typography.headlineSmall.fontFamily,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = cardFg
+                                )
+                                LinearProgressIndicator(
+                                    progress = { pct / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
+                                    color = if (isGlyph) GlyphRedDot else if (isCharging) Color(0xFF5CF28E) else accent,
+                                    trackColor = cardSub.copy(alpha = 0.25f)
+                                )
+                            }
                         }
                     }
 
@@ -1714,24 +1899,59 @@ fun StudioWidgetCard(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(Icons.Rounded.DirectionsRun, contentDescription = null, tint = Color(0xFF5CF28E), modifier = Modifier.size(15.dp))
+                                    Icon(
+                                        Icons.Rounded.DirectionsRun,
+                                        contentDescription = null,
+                                        tint = if (isGlyph) GlyphRedDot else Color(0xFF5CF28E),
+                                        modifier = Modifier.size(15.dp)
+                                    )
                                     Text("Steps", style = MaterialTheme.typography.labelSmall, color = cardSub)
                                 }
                                 Text("+250", style = MaterialTheme.typography.labelSmall, color = accent, fontWeight = FontWeight.Bold)
                             }
-                            Text(
-                                text = String.format(Locale.US, "%,d", steps),
-                                fontFamily = JetBrainsMonoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 23.sp,
-                                color = cardFg
-                            )
-                            LinearProgressIndicator(
-                                progress = { (steps / goal.toFloat()).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
-                                color = Color(0xFF5CF28E),
-                                trackColor = cardSub.copy(alpha = 0.25f)
-                            )
+                            if (isGlyph) {
+                                val litDots = ((steps / goal.toFloat()) * 10f).roundToInt().coerceIn(1, 10)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = String.format(Locale.US, "%,d", steps),
+                                        fontFamily = DotGothicFontFamily,
+                                        fontSize = 19.sp,
+                                        color = cardFg
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        repeat(10) { idx ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(4.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (idx == litDots - 1) GlyphRedDot
+                                                        else if (idx < litDots) cardFg
+                                                        else cardSub.copy(alpha = 0.25f)
+                                                    )
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = String.format(Locale.US, "%,d", steps),
+                                    fontFamily = JetBrainsMonoFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 23.sp,
+                                    color = cardFg
+                                )
+                                LinearProgressIndicator(
+                                    progress = { (steps / goal.toFloat()).coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)),
+                                    color = Color(0xFF5CF28E),
+                                    trackColor = cardSub.copy(alpha = 0.25f)
+                                )
+                            }
                         }
                     }
 
